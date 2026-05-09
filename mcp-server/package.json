@@ -1,5 +1,5 @@
 {
-  "name": "@modelwatch/mcp",
+  "name": "modelwatch-mcp",
   "version": "0.1.0",
   "description": "MCP server for ModelWatch — continuous behavioral drift monitoring for LLM-powered applications.",
   "mcpName": "io.github.bch1212/modelwatch",

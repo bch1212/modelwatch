@@ -1,8 +1,8 @@
-# Publishing @modelwatch/mcp
+# Publishing modelwatch-mcp
 
 Two artifacts to publish on every release:
 
-1. **npm package** (`@modelwatch/mcp`) — what users install
+1. **npm package** (`modelwatch-mcp`) — what users install
 2. **MCP Registry entry** (`io.github.bch1212/modelwatch`) — what makes the
    server discoverable in the Anthropic MCP Registry
 
@@ -80,7 +80,7 @@ Verify:
 
 ```bash
 # npm
-curl -sS https://registry.npmjs.org/@modelwatch/mcp | jq '."dist-tags".latest'
+curl -sS https://registry.npmjs.org/modelwatch-mcp | jq '."dist-tags".latest'
 
 # MCP Registry
 curl -sS "https://registry.modelcontextprotocol.io/v0/servers?search=modelwatch" | jq

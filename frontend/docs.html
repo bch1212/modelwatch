@@ -141,14 +141,14 @@ GET /api/dashboard/recent-events?limit=20</pre>
   <p>Severity buckets: <code>&lt;0.05</code> none &middot; <code>&lt;0.15</code> low &middot; <code>&lt;0.35</code> medium &middot; <code>&lt;0.6</code> high &middot; <code>&ge;0.6</code> critical.</p>
 
   <h2 class="mt-10 text-xl font-semibold">MCP server</h2>
-  <p>Install <code>@modelwatch/mcp</code> for Claude Desktop / Claude Code:</p>
-<pre>npm install -g @modelwatch/mcp</pre>
+  <p>Install <code>modelwatch-mcp</code> for Claude Desktop / Claude Code:</p>
+<pre>npm install -g modelwatch-mcp</pre>
   <p>Add to your MCP config:</p>
 <pre>{
   "mcpServers": {
     "modelwatch": {
       "command": "npx",
-      "args": ["-y", "@modelwatch/mcp"],
+      "args": ["-y", "modelwatch-mcp"],
       "env": { "MODELWATCH_API_KEY": "mw_..." }
     }
   }

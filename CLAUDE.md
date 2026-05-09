@@ -158,7 +158,7 @@ pytest tests/ -v
 
 ## Not yet built (post-deploy backlog)
 - Next.js dashboard frontend (Vercel) — backend is API-only right now
-- MCP server (`@modelwatch/mcp` with `create_spec`, `check_drift`, `get_report`)
+- MCP server (`modelwatch-mcp` with `create_spec`, `check_drift`, `get_report`)
 - Public landing page + SEO (modelwatch.app/www)
 - Auto blog: weekly "Did OpenAI update GPT-4 this week?" post
 - README badge viral loop (badge endpoint exists, just needs marketing)

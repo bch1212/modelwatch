@@ -10,7 +10,7 @@ through manually.
 | Backend | `app/`, `tests/` | Already shipped — 52/53 pytest pass (1 sandbox-only pytest-asyncio quirk, harmless on macOS) |
 | Deploy walkthrough | `DEPLOY_WALKTHROUGH.md` | **New** — step-by-step from your Mac |
 | Landing page + dashboard + docs | `frontend/` | **New** — static, deploy via `wrangler pages deploy` |
-| `@modelwatch/mcp` server | `mcp-server/` | **New** — TypeScript, npm-publishable, MCP Registry-ready |
+| `modelwatch-mcp` server | `mcp-server/` | **New** — TypeScript, npm-publishable, MCP Registry-ready |
 | Weekly auto-blog | `scripts/weekly_drift_report.py` + `.github/workflows/weekly-drift-report.yml` | **New** — Mondays 13:00 UTC |
 | MCP publish workflow | `.github/workflows/publish-mcp.yml` | **New** — triggered by `mcp-v*` git tag |
 | Salesbot wiring | `../salesbot/salesbot/products.py` (MODELWATCH entry) + `../salesbot/state/nurture-sequences/modelwatch.json` | **New** — 11th product, all 75 salesbot tests pass |
@@ -162,10 +162,10 @@ modelwatch/
 │   ├── assets/app.js               ← all client logic
 │   ├── _headers / _redirects       ← cache + canonical hostname
 │   └── DEPLOY.md
-├── mcp-server/                   ← @modelwatch/mcp
+├── mcp-server/                   ← modelwatch-mcp
 │   ├── src/index.ts                ← 9 MCP tools
 │   ├── server.json                 ← Anthropic MCP Registry entry
-│   ├── package.json                ← name @modelwatch/mcp
+│   ├── package.json                ← name modelwatch-mcp
 │   ├── README.md / LICENSE / .gitignore / tsconfig.json
 │   └── PUBLISH.md                  ← release ritual
 ├── scripts/

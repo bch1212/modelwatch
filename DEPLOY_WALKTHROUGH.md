@@ -275,7 +275,7 @@ product:
 
 1. **Frontend** (`modelwatch/frontend/`) — Next.js landing + dashboard,
    deploys to Cloudflare Pages. See `frontend/DEPLOY.md`.
-2. **MCP server** (`modelwatch/mcp-server/`) — `@modelwatch/mcp` for Claude
+2. **MCP server** (`modelwatch/mcp-server/`) — `modelwatch-mcp` for Claude
    Desktop / Claude Code. See `mcp-server/PUBLISH.md`.
 3. **Auto-blog** — GitHub Action runs weekly, generates "did model X drift
    this week?" posts. See `.github/workflows/weekly-drift-report.yml`.

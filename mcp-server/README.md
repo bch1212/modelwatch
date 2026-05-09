@@ -1,4 +1,4 @@
-# @modelwatch/mcp
+# modelwatch-mcp
 
 MCP server for [ModelWatch](https://modelwatch.app) — continuous behavioral
 drift monitoring for LLM-powered applications.
@@ -9,7 +9,7 @@ specs, run them, and surface drift events without leaving the chat.
 ## Install
 
 ```bash
-npm install -g @modelwatch/mcp
+npm install -g modelwatch-mcp
 ```
 
 ## Configure (Claude Desktop)
@@ -21,7 +21,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "modelwatch": {
       "command": "npx",
-      "args": ["-y", "@modelwatch/mcp"],
+      "args": ["-y", "modelwatch-mcp"],
       "env": {
         "MODELWATCH_API_KEY": "mw_PASTE_FROM_EMAIL"
       }
