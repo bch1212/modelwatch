@@ -1,6 +1,6 @@
 {
   "name": "modelwatch-mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server for ModelWatch — continuous behavioral drift monitoring for LLM-powered applications.",
   "mcpName": "io.github.bch1212/modelwatch",
   "license": "MIT",
