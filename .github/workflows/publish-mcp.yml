@@ -26,6 +26,13 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Upgrade npm to >= 11.5 (required for OIDC trusted publishing)
+        # actions/setup-node@v4 ships npm 10.x with Node 20 — too old for npm's
+        # trusted-publishers OIDC flow. The configured trusted publisher in
+        # npmjs.com (workflow path .github/workflows/publish-mcp.yml in
+        # bch1212/modelwatch) handles auth, but only with npm 11.5+.
+        run: npm install -g npm@latest
+
       - name: Install + build
         # npm install (not npm ci) because lockfile may not be committed
         # cleanly across all dev environments — keep this resilient.
@@ -33,10 +40,8 @@ jobs:
           npm install --no-audit --no-fund
           npm run build
 
-      - name: Publish to npm
+      - name: Publish to npm (OIDC trusted publisher — no token needed)
         run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Wait for npm to index the new version
         run: |
