@@ -11,10 +11,13 @@ job, triggered by pushing a tag of the form `mcp-v*`.
 
 ## Prereq — one-time
 
-1. **npm token**
-   - npmjs.com → Profile → Access Tokens → **Generate Granular Token**
-   - Scope: read & write packages, allow `@modelwatch/*`
-   - Add to GitHub repo → Settings → Secrets → `NPM_TOKEN`
+1. **npm trusted publisher** ✓ (already configured)
+   - npmjs.com → `modelwatch-mcp` → Settings → Trusted Publishers
+   - Repo `bch1212/modelwatch`, workflow `.github/workflows/publish-mcp.yml`
+   - **No `NPM_TOKEN` needed** — the workflow's `id-token: write` permission
+     authenticates publishes via GitHub Actions OIDC.
+   - Requires npm 11.5+ — the workflow runs `npm install -g npm@latest`
+     before publish (actions/setup-node@v4 ships npm 10.x with Node 20).
 2. **GitHub repo claim** (per Anthropic MCP Registry rules from the
    `reference_mcp_registry_publish` memory)
    - Repo URL must be `github.com/bch1212/modelwatch`
