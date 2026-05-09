@@ -2,10 +2,15 @@
 
 Posted autonomously already:
 - Discord webhook → posted (workspace #general)
-- Twitter @grantiq_us → tweet id `2053143431497515200`
 - `awesome-mcp-servers` PR #6122 → opened
 - Anthropic MCP Registry → `io.github.bch1212/modelwatch` listed
 - npm `modelwatch-mcp` v0.1.0 → published
+
+**Twitter:** the salesbot owns the schedule for ModelWatch (added as the 11th
+ACTIVE_PRODUCT with `twitter_handle="brett_halv"`). The single direct tweet I
+posted from @grantiq_us was the wrong account — deleted. Don't re-post from
+here; the salesbot's content + publisher agents will pick ModelWatch up on
+their normal cadence using the right voice.
 
 The drafts below are for the channels that don't have an API or that you
 historically post manually (per `feedback_brett_handles_launch` memory). Each
