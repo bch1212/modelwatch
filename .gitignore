@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+pytest-cache-files-*/
+.DS_Store
+*.log
+.env
+.env.railway
+.encryption_key
+.railway/
+*.db
+*.db-journal
+node_modules/
+mcp-server/dist/
+# scripts/baselines/ IS committed — week-over-week diff depends on it

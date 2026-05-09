@@ -1,0 +1,16 @@
+# Cache-bust JS/CSS so dashboard updates reach users on next pageload.
+# Per Cloudflare Pages default 4-hour cache rule — see workspace memory.
+
+/assets/app.js
+  Cache-Control: public, max-age=300, must-revalidate
+  Content-Type: application/javascript; charset=utf-8
+
+/assets/favicon.svg
+  Cache-Control: public, max-age=86400
+  Content-Type: image/svg+xml
+
+/*.html
+  Cache-Control: public, max-age=300, must-revalidate
+
+/blog/*
+  Cache-Control: public, max-age=3600

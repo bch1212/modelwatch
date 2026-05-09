@@ -1,0 +1,6 @@
+# Apex → www. Keeps a single canonical hostname for SEO + cookies.
+https://modelwatch.app/* https://www.modelwatch.app/:splat 301!
+
+# Friendly /docs alias to the docs page
+/docs /docs.html 200
+/dashboard /dashboard.html 200

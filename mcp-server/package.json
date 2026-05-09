@@ -1,0 +1,54 @@
+{
+  "name": "@modelwatch/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for ModelWatch — continuous behavioral drift monitoring for LLM-powered applications.",
+  "mcpName": "io.github.bch1212/modelwatch",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "modelwatch-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "dev": "tsx src/index.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "llm-monitoring",
+    "model-drift",
+    "ai-observability",
+    "llm-evaluation",
+    "claude",
+    "openai",
+    "drift-detection"
+  ],
+  "homepage": "https://modelwatch.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bch1212/modelwatch.git",
+    "directory": "mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/bch1212/modelwatch/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

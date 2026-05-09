@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>The ModelWatch Drift Report — weekly</title>
+<meta name="description" content="Weekly behavioral drift report for OpenAI GPT-4 / GPT-4o, Anthropic Claude, and other major LLMs. Did the providers ship a silent update this week?" />
+<link rel="alternate" type="application/rss+xml" title="ModelWatch Drift Report" href="/blog/rss.xml" />
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<script src="https://cdn.tailwindcss.com?v=20260508"></script>
+<style>body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif}</style>
+</head>
+<body class="bg-white text-slate-900">
+
+<header class="border-b border-slate-200">
+  <div class="max-w-3xl mx-auto px-6 py-4 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
+      <span class="inline-block w-6 h-6 rounded-md bg-blue-600"></span>
+      ModelWatch <span class="text-slate-400 text-sm font-normal ml-1">/ drift report</span>
+    </a>
+    <a href="/dashboard.html" class="text-sm text-slate-600 hover:text-slate-900">Dashboard</a>
+  </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-6 py-10">
+  <h1 class="text-3xl font-semibold tracking-tight">The ModelWatch Drift Report</h1>
+  <p class="mt-2 text-slate-600">Every Monday we run a curated set of canary specs against OpenAI GPT-4o, Claude Sonnet, and other major hosted LLMs. If the providers shipped a silent update, you'll see it here first.</p>
+  <p class="mt-2 text-sm"><a href="/blog/rss.xml" class="text-blue-600 hover:underline">Subscribe via RSS</a> &middot; <a href="/#signup" class="text-blue-600 hover:underline">Run your own specs</a></p>
+
+  <ul id="post-list" class="mt-10 divide-y divide-slate-200">
+    <li class="py-4 text-slate-500 text-sm">No reports yet — the first one ships next Monday.</li>
+  </ul>
+</main>
+
+<script>
+  // Pull the index.json that the GitHub Action commits each week.
+  fetch('/blog/index.json').then(function(r){ if(!r.ok) throw 0; return r.json(); }).then(function(posts){
+    if(!posts.length) return;
+    var ul = document.getElementById('post-list');
+    ul.innerHTML = posts.map(function(p){
+      return '<li class="py-4">' +
+        '<a class="text-lg font-medium text-slate-900 hover:underline" href="' + p.slug + '">' + p.title + '</a>' +
+        '<p class="text-xs text-slate-500 mt-1">' + new Date(p.published_at).toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}) + '</p>' +
+        '<p class="text-sm text-slate-600 mt-2">' + p.summary + '</p>' +
+      '</li>';
+    }).join('');
+  }).catch(function(){});
+</script>
+
+</body>
+</html>

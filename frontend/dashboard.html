@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Dashboard — ModelWatch</title>
+<meta name="robots" content="noindex" />
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<script src="https://cdn.tailwindcss.com?v=20260508"></script>
+<script>
+  tailwind.config = { theme: { extend: { colors: { brand: { 50:'#eef6ff', 500:'#2563eb', 600:'#1d4ed8', 900:'#0a1f44' } } } } };
+</script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen">
+
+<header class="border-b border-slate-200 bg-white">
+  <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
+      <span class="inline-block w-6 h-6 rounded-md bg-brand-600"></span>
+      ModelWatch <span class="text-slate-400 text-sm font-normal ml-1">/ dashboard</span>
+    </a>
+    <div class="flex items-center gap-4 text-sm">
+      <span id="ws-info" class="text-slate-500"></span>
+      <button id="logout-btn" hidden class="text-slate-500 hover:text-slate-900">Sign out</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-6 py-8">
+
+  <!-- LOGIN view -->
+  <section id="login-view">
+    <div class="max-w-md mx-auto bg-white rounded-xl ring-1 ring-slate-200 p-6 mt-8">
+      <h1 class="text-xl font-semibold">Sign in with your API key</h1>
+      <p class="mt-2 text-sm text-slate-600">Paste the <span class="mono">mw_</span> key emailed to you on signup. Your key stays in your browser — we never store it.</p>
+      <form id="login-form" class="mt-5 space-y-3">
+        <input id="api-key-input" type="password" required placeholder="mw_..." class="w-full rounded-md ring-1 ring-slate-300 px-3 py-2 mono" />
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-900 text-white font-medium rounded-md py-2">Sign in</button>
+      </form>
+      <p id="login-error" class="mt-3 text-sm text-rose-600"></p>
+      <p class="mt-6 text-xs text-slate-500 text-center">Don't have a key? <a href="/#signup" class="text-brand-600 hover:underline">Get one free &rarr;</a></p>
+    </div>
+  </section>
+
+  <!-- AUTHENTICATED view -->
+  <section id="app-view" hidden>
+
+    <!-- KPIs -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      <div class="bg-white rounded-lg ring-1 ring-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wider">Plan</p>
+        <p id="kpi-plan" class="text-xl font-semibold mt-1">—</p>
+      </div>
+      <div class="bg-white rounded-lg ring-1 ring-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wider">Specs</p>
+        <p id="kpi-specs" class="text-xl font-semibold mt-1">—</p>
+      </div>
+      <div class="bg-white rounded-lg ring-1 ring-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wider">Runs / month</p>
+        <p id="kpi-runs" class="text-xl font-semibold mt-1">—</p>
+      </div>
+      <div class="bg-white rounded-lg ring-1 ring-slate-200 p-4">
+        <p class="text-xs text-slate-500 uppercase tracking-wider">Active drift events</p>
+        <p id="kpi-drift" class="text-xl font-semibold mt-1">—</p>
+      </div>
+    </div>
+
+    <!-- LLM Provider Keys -->
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-6 mb-8">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Your LLM provider keys</h2>
+        <button id="add-llm-key-btn" class="text-sm bg-slate-900 hover:bg-slate-800 text-white rounded-md px-3 py-1.5">Add key</button>
+      </div>
+      <p class="text-sm text-slate-500 mt-1">Encrypted at rest with Fernet. Never logged, never returned.</p>
+      <div id="llm-keys-list" class="mt-4 divide-y divide-slate-100"></div>
+    </div>
+
+    <!-- Endpoints -->
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-6 mb-8">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Endpoints</h2>
+        <button id="add-endpoint-btn" class="text-sm bg-slate-900 hover:bg-slate-800 text-white rounded-md px-3 py-1.5">Add endpoint</button>
+      </div>
+      <p class="text-sm text-slate-500 mt-1">An endpoint is a model + provider you want to monitor (e.g. OpenAI gpt-4o-mini).</p>
+      <div id="endpoints-list" class="mt-4 divide-y divide-slate-100"></div>
+    </div>
+
+    <!-- Specs -->
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-6 mb-8">
+      <div class="flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Specs</h2>
+        <button id="add-spec-btn" class="text-sm bg-brand-600 hover:bg-brand-900 text-white rounded-md px-3 py-1.5">Add spec</button>
+      </div>
+      <p class="text-sm text-slate-500 mt-1">A spec is the prompt + expectation we replay against the endpoint on a schedule.</p>
+      <div id="specs-list" class="mt-4 space-y-3"></div>
+    </div>
+
+    <!-- Drift events -->
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-6 mb-8">
+      <h2 class="text-lg font-semibold">Recent drift events</h2>
+      <div id="drift-list" class="mt-4 divide-y divide-slate-100"></div>
+    </div>
+
+    <!-- Billing -->
+    <div class="bg-white rounded-xl ring-1 ring-slate-200 p-6 mb-8">
+      <h2 class="text-lg font-semibold">Billing</h2>
+      <p class="text-sm text-slate-500 mt-1">Upgrade to unlock more specs / runs / Slack alerts.</p>
+      <div class="mt-4 grid grid-cols-3 gap-3">
+        <button data-checkout="pro" class="border border-slate-300 hover:border-brand-600 rounded-md p-3 text-left">
+          <span class="block font-semibold">Pro &middot; $99/mo</span>
+          <span class="block text-xs text-slate-500 mt-1">50 specs / 10K runs / Slack alerts</span>
+        </button>
+        <button data-checkout="team" class="border border-slate-300 hover:border-brand-600 rounded-md p-3 text-left">
+          <span class="block font-semibold">Team &middot; $299/mo</span>
+          <span class="block text-xs text-slate-500 mt-1">Unlimited specs / 100K runs / regression reports</span>
+        </button>
+        <button data-checkout="enterprise" class="border border-slate-300 hover:border-brand-600 rounded-md p-3 text-left">
+          <span class="block font-semibold">Enterprise &middot; $999/mo</span>
+          <span class="block text-xs text-slate-500 mt-1">Unlimited everything / priority support</span>
+        </button>
+      </div>
+    </div>
+
+  </section>
+</main>
+
+<!-- Modals (simple <dialog>) -->
+<dialog id="endpoint-modal" class="rounded-xl ring-1 ring-slate-200 p-0 backdrop:bg-slate-900/40">
+  <form id="endpoint-form" method="dialog" class="bg-white p-6 w-[28rem]">
+    <h3 class="font-semibold text-lg">Add endpoint</h3>
+    <p class="text-sm text-slate-500 mt-1">Pick the provider + model you want to monitor.</p>
+    <label class="block mt-4 text-sm">Name <input name="name" required placeholder="GPT-4o mini prod" class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2"></label>
+    <label class="block mt-3 text-sm">Provider
+      <select name="provider" required class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+    </label>
+    <label class="block mt-3 text-sm">Model <input name="model" required placeholder="gpt-4o-mini" class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2 mono"></label>
+    <label class="block mt-3 text-sm">Base URL <span class="text-slate-400">(optional, for OpenAI-compatible endpoints)</span>
+      <input name="base_url" placeholder="https://api.openai.com/v1" class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2 mono">
+    </label>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" data-close class="px-3 py-2 text-slate-600 hover:text-slate-900">Cancel</button>
+      <button type="submit" class="bg-brand-600 hover:bg-brand-900 text-white font-medium rounded-md px-4 py-2">Add</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="spec-modal" class="rounded-xl ring-1 ring-slate-200 p-0 backdrop:bg-slate-900/40">
+  <form id="spec-form" method="dialog" class="bg-white p-6 w-[36rem]">
+    <h3 class="font-semibold text-lg">Add spec</h3>
+    <label class="block mt-4 text-sm">Endpoint
+      <select name="endpoint_id" required class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2"></select>
+    </label>
+    <label class="block mt-3 text-sm">Spec name <input name="name" required placeholder="Refusal canary" class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2"></label>
+    <label class="block mt-3 text-sm">Prompt <textarea name="prompt" required rows="4" placeholder="Should I see a doctor about chest pain?" class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2"></textarea></label>
+    <label class="block mt-3 text-sm">Frequency
+      <select name="frequency" required class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2">
+        <option value="hourly">Hourly</option>
+        <option value="daily" selected>Daily</option>
+        <option value="weekly">Weekly</option>
+      </select>
+    </label>
+    <label class="block mt-3 text-sm">Severity threshold
+      <select name="threshold" required class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2">
+        <option value="low">Low (any drift &gt;= 0.05)</option>
+        <option value="medium" selected>Medium (any drift &gt;= 0.15)</option>
+        <option value="high">High (any drift &gt;= 0.35)</option>
+        <option value="critical">Critical only (&gt;= 0.6)</option>
+      </select>
+    </label>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" data-close class="px-3 py-2 text-slate-600 hover:text-slate-900">Cancel</button>
+      <button type="submit" class="bg-brand-600 hover:bg-brand-900 text-white font-medium rounded-md px-4 py-2">Create &amp; baseline</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="llm-key-modal" class="rounded-xl ring-1 ring-slate-200 p-0 backdrop:bg-slate-900/40">
+  <form id="llm-key-form" method="dialog" class="bg-white p-6 w-[28rem]">
+    <h3 class="font-semibold text-lg">Add LLM provider key</h3>
+    <p class="text-sm text-slate-500 mt-1">We encrypt this key with Fernet and decrypt it only when running your specs. Never logged.</p>
+    <label class="block mt-4 text-sm">Provider
+      <select name="provider" required class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2">
+        <option value="openai">OpenAI</option>
+        <option value="anthropic">Anthropic</option>
+      </select>
+    </label>
+    <label class="block mt-3 text-sm">API key
+      <input name="api_key" type="password" required placeholder="sk-..." class="mt-1 w-full rounded-md ring-1 ring-slate-300 px-3 py-2 mono">
+    </label>
+    <div class="mt-5 flex justify-end gap-2">
+      <button type="button" data-close class="px-3 py-2 text-slate-600 hover:text-slate-900">Cancel</button>
+      <button type="submit" class="bg-brand-600 hover:bg-brand-900 text-white font-medium rounded-md px-4 py-2">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="/assets/app.js?v=20260508-1"></script>
+</body>
+</html>

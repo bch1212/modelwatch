@@ -1,0 +1,92 @@
+name: Publish @modelwatch/mcp
+
+on:
+  push:
+    tags:
+      - "mcp-v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # id-token: write is required for both:
+      #   1. npm provenance attestation
+      #   2. MCP Registry OIDC auth at /v0/auth/github-oidc
+      id-token: write
+    defaults:
+      run:
+        working-directory: mcp-server
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install + build
+        # npm install (not npm ci) because lockfile may not be committed
+        # cleanly across all dev environments — keep this resilient.
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Publish to npm
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Wait for npm to index the new version
+        run: |
+          for i in $(seq 1 12); do
+            ver=$(curl -sS "https://registry.npmjs.org/@modelwatch/mcp" | jq -r '."dist-tags".latest // empty')
+            if [ -n "$ver" ]; then
+              echo "npm latest: $ver"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "npm did not index the package within 60s — continuing anyway"
+
+      - name: Get GitHub Actions OIDC token (registry audience)
+        id: oidc
+        # The MCP Registry expects audience=https://registry.modelcontextprotocol.io
+        # — confirmed by the 401 'invalid audience' error message.
+        run: |
+          token=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://registry.modelcontextprotocol.io" \
+            | jq -r '.value')
+          if [ -z "$token" ] || [ "$token" = "null" ]; then
+            echo "Failed to obtain OIDC token"; exit 1
+          fi
+          echo "::add-mask::$token"
+          echo "oidc_token=$token" >> "$GITHUB_OUTPUT"
+
+      - name: Exchange OIDC token for MCP Registry JWT
+        id: exchange
+        run: |
+          resp=$(curl -sS -X POST https://registry.modelcontextprotocol.io/v0/auth/github-oidc \
+            -H "content-type: application/json" \
+            -d "{\"oidc_token\":\"${{ steps.oidc.outputs.oidc_token }}\"}")
+          echo "exchange resp: $(echo "$resp" | jq 'del(.token, .registry_token)')"
+          tok=$(echo "$resp" | jq -r '.token // .registry_token // empty')
+          if [ -z "$tok" ]; then echo "No registry token in response"; echo "$resp"; exit 1; fi
+          echo "::add-mask::$tok"
+          echo "registry_token=$tok" >> "$GITHUB_OUTPUT"
+
+      - name: Submit server.json to MCP Registry
+        run: |
+          resp=$(curl -sS -X POST https://registry.modelcontextprotocol.io/v0/publish \
+            -H "Authorization: Bearer ${{ steps.exchange.outputs.registry_token }}" \
+            -H "content-type: application/json" \
+            -d @server.json)
+          echo "publish resp: $resp"
+          # Treat 4xx/5xx as failure unless it's "already exists" idempotency.
+          if echo "$resp" | grep -qiE '"status":\s*[45]'; then
+            if echo "$resp" | grep -qi "already"; then
+              echo "Already published — idempotent, ok"; exit 0
+            fi
+            exit 1
+          fi

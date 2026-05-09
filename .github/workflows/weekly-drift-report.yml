@@ -1,0 +1,64 @@
+name: Weekly drift report
+
+on:
+  schedule:
+    # Mondays at 13:00 UTC = 8 AM CT (Brett's morning)
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commits the new post + baseline + index back to main
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install backend deps
+        run: pip install -r requirements.txt
+
+      - name: Run drift report
+        # All four keys are passed; the script auto-skips endpoints whose
+        # provider key is unset (so it works fine with Anthropic+Gemini+Groq
+        # alone, no OpenAI needed).
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY:    ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY:      ${{ secrets.GROQ_API_KEY }}
+          OPENAI_API_KEY:    ${{ secrets.OPENAI_API_KEY }}   # optional
+        run: python scripts/weekly_drift_report.py
+
+      - name: Commit + push
+        run: |
+          git config user.name "modelwatch-bot"
+          git config user.email "actions@modelwatch.app"
+          git add frontend/blog/ scripts/baselines/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "weekly drift report: $(date -u +'%Y-%m-%d')"
+            git push
+          fi
+
+      - name: Deploy frontend to Cloudflare Pages
+        # Uses the Global API Key (full account access) — no separate Pages
+        # token needed. CLOUDFLARE_EMAIL is the CF account login email.
+        env:
+          CLOUDFLARE_API_KEY:    ${{ secrets.CLOUDFLARE_GLOBAL_API_KEY }}
+          CLOUDFLARE_EMAIL:      ${{ secrets.CLOUDFLARE_EMAIL }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm install -g wrangler@latest >/dev/null
+          cd frontend
+          wrangler pages deploy . \
+            --project-name=modelwatch-web \
+            --branch=main \
+            --commit-dirty=true
