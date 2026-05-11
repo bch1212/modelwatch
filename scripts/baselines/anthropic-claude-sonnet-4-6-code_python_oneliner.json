@@ -2,6 +2,6 @@
   "provider": "anthropic",
   "model": "claude-sonnet-4-6",
   "spec_id": "code_python_oneliner",
-  "captured_at": "2026-05-11T15:55:15.689758+00:00",
-  "output": "## One-Line Fibonacci Function\n\n```python\nfib = lambda n: n if n <= 1 else fib(n - 1) + fib(n - 2)\n```\n\n### Usage\n```python\nprint(fib(0))   # 0\nprint(fib(1))   # 1\nprint(fib(10))  # 55\nprint(fib(15))  # 610\n```\n\n### Alternative with `functools.lru_cache` for better performance:\n```python\nfrom functools import lru_cache\n\nfib = lru_cache(maxsize=None)(lambda n: n if n <= 1 else fib(n - 1) + fib(n - 2))\n```\n\n> **Note:** The basic recursive version has **O(2\u207f)** time complexity. The `lru_cache` version reduces it to **O(n)** by memoizing previously computed values."
+  "captured_at": "2026-05-11T16:19:54.083508+00:00",
+  "output": "## One-Line Fibonacci Function\n\n```python\nfib = lambda n: n if n <= 1 else fib(n - 1) + fib(n - 2)\n```\n\n### Usage\n```python\nprint(fib(0))   # 0\nprint(fib(1))   # 1\nprint(fib(10))  # 55\nprint(fib(15))  # 610\n```\n\n### More Efficient Version (with memoization)\n```python\nfrom functools import lru_cache\n\nfib = lru_cache(maxsize=None)(lambda n: n if n <= 1 else fib(n - 1) + fib(n - 2))\n```\n\n| Version | Time Complexity | Space Complexity |\n|---------|----------------|-----------------|\n| Basic | O(2\u207f) | O(n) |\n| Memoized | O(n) | O(n) |\n\nThe basic version is simple but **slow for large values** due to redundant recursive calls. The memoized version caches results, making it significantly faster."
 }
