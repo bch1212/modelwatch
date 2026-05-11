@@ -232,7 +232,12 @@ async def call_groq(model: str, prompt: str) -> str:
 
 
 async def call_endpoint(ep: dict, prompt: str) -> str:
-    """Route to the right SDK; brief retry on transient errors."""
+    """Route to the right SDK; brief retry on transient errors.
+
+    Skips retries on 429 (rate limit) — retrying a 429 inside the same minute
+    just burns more quota and risks deeper throttling. Free-tier Gemini was
+    the original culprit (5 RPM).
+    """
     last: Exception | None = None
     for attempt in range(3):
         try:
@@ -243,6 +248,11 @@ async def call_endpoint(ep: dict, prompt: str) -> str:
             raise ValueError(f"unknown provider {ep['provider']}")
         except Exception as e:
             last = e
+            msg = str(e).lower()
+            if "429" in msg or "rate" in msg or "quota" in msg:
+                # Don't retry — would burn more quota. Fail fast and move on;
+                # next week's run will catch this canary.
+                raise
             await asyncio.sleep(2 ** attempt)
     assert last is not None
     raise last
