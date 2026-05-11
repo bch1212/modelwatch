@@ -2,6 +2,6 @@
   "provider": "anthropic",
   "model": "claude-haiku-4-5-20251001",
   "spec_id": "code_python_oneliner",
-  "captured_at": "2026-05-11T16:19:30.898228+00:00",
-  "output": "# One-liner Fibonacci function\nfib = lambda n: n if n < 2 else fib(n-1) + fib(n-2)\n\n**Usage example:**\n```python\nprint(fib(10))  # Output: 55\n```\n\n**Note:** This recursive solution is elegant but inefficient for large n (exponential time complexity). For better performance, use:\n\n```python\nfib = lambda n: (lambda f: f(f, n))(lambda f, n: n if n < 2 else f(f, n-1) + f(f, n-2))\n```\n\nOr a memoized version:\n```python\nfib = (lambda cache={}: lambda n: cache.get(n) or (n if n < 2 else cache.setdefault(n, fib(n-1) + fib(n-2))))()\n```"
+  "captured_at": "2026-05-11T16:24:25.612119+00:00",
+  "output": "# One-liner Fibonacci function using lambda\nfib = lambda n: n if n < 2 else fib(n-1) + fib(n-2)\n\n# Usage examples:\nprint(fib(0))   # 0\nprint(fib(5))   # 5\nprint(fib(10))  # 55\n\n**Note:** This recursive approach is simple but inefficient for large values of `n` (exponential time complexity). For better performance, here's a more practical one-liner using memoization:\n\n```python\nfrom functools import lru_cache\nfib = lambda n: n if n < 2 else lru_cache(maxsize=None)(lambda x: x if x < 2 else fib(x-1) + fib(x-2))(n)\n```\n\nOr a cleaner iterative approach:\n\n```python\nfib = lambda n: (lambda f: f(n, 0, 1))(lambda x, a, b: a if x == 0 else f(x-1, b, a+b))\n```"
 }
