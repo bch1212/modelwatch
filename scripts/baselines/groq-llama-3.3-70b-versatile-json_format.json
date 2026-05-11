@@ -2,6 +2,6 @@
   "provider": "groq",
   "model": "llama-3.3-70b-versatile",
   "spec_id": "json_format",
-  "captured_at": "2026-05-11T16:25:49.379822+00:00",
+  "captured_at": "2026-05-11T16:30:04.304961+00:00",
   "output": "{\"name\": \"Mars\", \"distance_from_sun_km\": 227939200, \"day_length_hours\": 24.62, \"has_moons\": true}"
 }
