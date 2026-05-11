@@ -129,15 +129,25 @@ CANARY_SPECS = [
 ALL_ENDPOINTS = [
     {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
     {"provider": "anthropic", "model": "claude-sonnet-4-6"},
-    # Gemini 1.5 was deprecated; 2.5 is current stable. Confirmed live via
-    # generativelanguage.googleapis.com/v1beta/models?key= on 2026-05-11.
+    # Gemini 1.5 was deprecated; 2.5-flash is current stable. Confirmed live
+    # via generativelanguage.googleapis.com/v1beta/models?key= on 2026-05-11.
+    # NOTE: dropped gemini-2.5-pro — free tier is 2 RPM (vs 5 for flash) and
+    # we hit 429s in 30s. Add it back when Brett upgrades to a paid tier.
     {"provider": "gemini",    "model": "gemini-2.5-flash"},
-    {"provider": "gemini",    "model": "gemini-2.5-pro"},
     {"provider": "groq",      "model": "llama-3.3-70b-versatile"},
     {"provider": "groq",      "model": "llama-3.1-8b-instant"},
     {"provider": "openai",    "model": "gpt-4o-mini"},   # optional — only if OPENAI_API_KEY set
     {"provider": "openai",    "model": "gpt-4o"},        # optional — only if OPENAI_API_KEY set
 ]
+
+# Per-provider sleep (seconds) between consecutive calls — needed for free-tier
+# rate limits. Gemini free is 5 RPM, so ~13s between calls keeps us safe.
+PROVIDER_PACING = {
+    "anthropic": 0.5,
+    "gemini":    13,
+    "groq":      0.5,   # generous limits
+    "openai":    0.5,
+}
 
 
 def env_for(provider: str) -> str | None:
@@ -470,7 +480,7 @@ async def main() -> int:
             # Roll the baseline forward — we're asking "what changed week over week"
             save_baseline(ep, spec["id"], current)
 
-            time.sleep(0.5)  # polite pacing
+            time.sleep(PROVIDER_PACING.get(ep["provider"], 0.5))  # provider-aware pacing
 
     if not results:
         print("No results — aborting (no post written).", file=sys.stderr)
