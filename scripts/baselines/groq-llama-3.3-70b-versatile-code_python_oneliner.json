@@ -1,0 +1,7 @@
+{
+  "provider": "groq",
+  "model": "llama-3.3-70b-versatile",
+  "spec_id": "code_python_oneliner",
+  "captured_at": "2026-05-11T15:56:33.664311+00:00",
+  "output": "```python\ndef fibonacci(n: int) -> int: return n if n < 2 else fibonacci(n-1) + fibonacci(n-2)\n```"
+}

@@ -1,0 +1,7 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-6",
+  "spec_id": "summary_terseness",
+  "captured_at": "2026-05-11T15:55:18.289633+00:00",
+  "output": "Here is a 30-word summary of Hamlet:\n\nDanish prince Hamlet seeks revenge after his father's ghost reveals his uncle Claudius committed murder to steal the throne and queen. Betrayal, madness, and tragedy follow, killing nearly everyone."
+}

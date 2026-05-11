@@ -1,0 +1,7 @@
+{
+  "provider": "anthropic",
+  "model": "claude-sonnet-4-6",
+  "spec_id": "math_basic",
+  "captured_at": "2026-05-11T15:55:02.963320+00:00",
+  "output": "391"
+}
