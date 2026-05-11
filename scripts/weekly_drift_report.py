@@ -60,15 +60,17 @@ async def embed(text: str) -> list[float] | None:
     gemini_key = os.environ.get("GEMINI_API_KEY")
     if gemini_key:
         try:
-            import urllib.parse
             import httpx
+            # text-embedding-004 was retired alongside Gemini 1.5; the current
+            # embedding model is gemini-embedding-001.
+            model = "gemini-embedding-001"
             url = (
                 "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"text-embedding-004:embedContent?key={gemini_key}"
+                f"{model}:embedContent?key={gemini_key}"
             )
             async with httpx.AsyncClient(timeout=30) as c:
                 r = await c.post(url, json={
-                    "model": "models/text-embedding-004",
+                    "model": f"models/{model}",
                     "content": {"parts": [{"text": text}]},
                 })
                 r.raise_for_status()
@@ -127,8 +129,10 @@ CANARY_SPECS = [
 ALL_ENDPOINTS = [
     {"provider": "anthropic", "model": "claude-haiku-4-5-20251001"},
     {"provider": "anthropic", "model": "claude-sonnet-4-6"},
-    {"provider": "gemini",    "model": "gemini-1.5-flash"},
-    {"provider": "gemini",    "model": "gemini-1.5-pro"},
+    # Gemini 1.5 was deprecated; 2.5 is current stable. Confirmed live via
+    # generativelanguage.googleapis.com/v1beta/models?key= on 2026-05-11.
+    {"provider": "gemini",    "model": "gemini-2.5-flash"},
+    {"provider": "gemini",    "model": "gemini-2.5-pro"},
     {"provider": "groq",      "model": "llama-3.3-70b-versatile"},
     {"provider": "groq",      "model": "llama-3.1-8b-instant"},
     {"provider": "openai",    "model": "gpt-4o-mini"},   # optional — only if OPENAI_API_KEY set

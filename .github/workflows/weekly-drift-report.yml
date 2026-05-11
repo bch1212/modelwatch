@@ -48,6 +48,11 @@ jobs:
             git push
           fi
 
+      - name: Setup Node (22 — wrangler@4 requires it)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Deploy frontend to Cloudflare Pages
         # Uses the Global API Key (full account access) — no separate Pages
         # token needed. CLOUDFLARE_EMAIL is the CF account login email.
