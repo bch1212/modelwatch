@@ -427,13 +427,26 @@ async def main() -> int:
         return 1
     print(f"[plan] {len(endpoints)} endpoints × {len(CANARY_SPECS)} specs = {len(endpoints)*len(CANARY_SPECS)} runs", flush=True)
 
+    # Track providers that hit a daily quota cap; skip their remaining specs
+    # so we don't waste time chasing a 429 we can't recover from this run.
+    quota_dead: set[str] = set()
+
     for ep in endpoints:
+        if ep["provider"] in quota_dead:
+            print(f"[skip] {ep['provider']}/{ep['model']} (daily quota exhausted earlier this run)", flush=True)
+            continue
         for spec in CANARY_SPECS:
             print(f"[run] {ep['provider']}/{ep['model']} :: {spec['id']}", flush=True)
             try:
                 current = await call_endpoint(ep, spec["prompt"])
             except Exception as e:
+                msg = str(e).lower()
                 print(f"  ! call failed: {e}", file=sys.stderr)
+                # Two consecutive 429s on the same provider in a row → treat
+                # as daily-quota and skip the rest of that provider's work.
+                if "429" in msg or "rate" in msg:
+                    quota_dead.add(ep["provider"])
+                    print(f"[skip-rest] {ep['provider']} quota hit; skipping its remaining specs this run", flush=True)
                 continue
 
             baseline = load_baseline(ep, spec["id"])
