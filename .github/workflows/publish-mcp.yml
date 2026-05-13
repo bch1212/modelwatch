@@ -40,8 +40,19 @@ jobs:
           npm install --no-audit --no-fund
           npm run build
 
-      - name: Publish to npm (OIDC trusted publisher — no token needed)
-        run: npm publish --provenance --access public
+      - name: Publish to npm (idempotent)
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set +e
+          out=$(npm publish --provenance --access public 2>&1)
+          rc=$?
+          echo "$out"
+          if [ $rc -ne 0 ] && echo "$out" | grep -qiE "cannot publish over|previously published|already published"; then
+            echo "Already published — idempotent, treating as success."
+            exit 0
+          fi
+          exit $rc
 
       - name: Wait for npm to index the new version
         run: |
@@ -90,7 +101,7 @@ jobs:
           echo "publish resp: $resp"
           # Treat 4xx/5xx as failure unless it's "already exists" idempotency.
           if echo "$resp" | grep -qiE '"status":\s*[45]'; then
-            if echo "$resp" | grep -qi "already"; then
+            if echo "$resp" | grep -qiE "already|duplicate"; then
               echo "Already published — idempotent, ok"; exit 0
             fi
             exit 1
