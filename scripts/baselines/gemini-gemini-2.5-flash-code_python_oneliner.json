@@ -1,0 +1,7 @@
+{
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "spec_id": "code_python_oneliner",
+  "captured_at": "2026-05-18T16:21:56.986820+00:00",
+  "output": "```python\nfib = lambda n: n if n < 2 else"
+}

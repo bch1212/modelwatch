@@ -2,6 +2,6 @@
   "provider": "groq",
   "model": "llama-3.3-70b-versatile",
   "spec_id": "summary_terseness",
-  "captured_at": "2026-05-11T16:30:07.179366+00:00",
+  "captured_at": "2026-05-18T16:22:07.288417+00:00",
   "output": "Prince Hamlet seeks revenge for his father's murder, feigning madness to uncover truth, in a tragic tale of betrayal, morality, and mortality in Elsinore Castle."
 }
