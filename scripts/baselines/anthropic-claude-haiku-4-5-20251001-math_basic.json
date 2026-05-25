@@ -2,6 +2,6 @@
   "provider": "anthropic",
   "model": "claude-haiku-4-5-20251001",
   "spec_id": "math_basic",
-  "captured_at": "2026-05-18T16:20:39.614641+00:00",
+  "captured_at": "2026-05-25T15:47:55.407842+00:00",
   "output": "391"
 }
