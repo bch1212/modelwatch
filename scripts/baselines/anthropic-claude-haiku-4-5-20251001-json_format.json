@@ -2,6 +2,6 @@
   "provider": "anthropic",
   "model": "claude-haiku-4-5-20251001",
   "spec_id": "json_format",
-  "captured_at": "2026-05-25T15:48:00.325040+00:00",
+  "captured_at": "2026-06-01T18:35:34.707117+00:00",
   "output": "```json\n{\n  \"name\": \"Mars\",\n  \"distance_from_sun_km\": 227900000,\n  \"day_length_hours\": 24.6,\n  \"has_moons\": true\n}\n```"
 }

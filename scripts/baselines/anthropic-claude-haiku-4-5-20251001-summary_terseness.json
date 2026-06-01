@@ -2,6 +2,6 @@
   "provider": "anthropic",
   "model": "claude-haiku-4-5-20251001",
   "spec_id": "summary_terseness",
-  "captured_at": "2026-05-25T15:48:05.698737+00:00",
-  "output": "# Hamlet Summary\n\nPrince Hamlet feigns madness to avenge his father's murder by his uncle Claudius, who married Hamlet's mother. Hamlet delays, leading to tragic deaths of Ophelia, Gertrude, Claudius, and himself."
+  "captured_at": "2026-06-01T18:35:39.838453+00:00",
+  "output": "# Hamlet Summary\n\nPrince Hamlet of Denmark feigns madness while plotting revenge against his uncle Claudius, who murdered Hamlet's father and married his mother. Hamlet's hesitation leads to tragedy, resulting in multiple deaths including his own."
 }

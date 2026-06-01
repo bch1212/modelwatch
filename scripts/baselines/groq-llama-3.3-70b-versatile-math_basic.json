@@ -2,6 +2,6 @@
   "provider": "groq",
   "model": "llama-3.3-70b-versatile",
   "spec_id": "math_basic",
-  "captured_at": "2026-05-25T15:49:46.651641+00:00",
+  "captured_at": "2026-06-01T18:37:27.438717+00:00",
   "output": "391"
 }

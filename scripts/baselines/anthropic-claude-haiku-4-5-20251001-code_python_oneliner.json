@@ -2,6 +2,6 @@
   "provider": "anthropic",
   "model": "claude-haiku-4-5-20251001",
   "spec_id": "code_python_oneliner",
-  "captured_at": "2026-05-25T15:48:03.712819+00:00",
-  "output": "# One-liner Fibonacci function\n```python\ndef fib(n):\n    return n if n < 2 else fib(n-1) + fib(n-2)\n```\n\n**Usage example:**\n```python\nprint(fib(10))  # Output: 55\n```\n\n**Note:** This recursive solution is simple but inefficient for large values of `n` (O(2^n) time complexity). For better performance, use:\n\n```python\ndef fib(n):\n    return round(((1+5**0.5)/2)**n / 5**0.5)  # Binet's formula\n```\n\nOr with memoization for recursive calls:\n```python\ndef fib(n, cache={}):\n    return n if n < 2 else cache.get(n) or cache.setdefault(n, fib(n-1, cache) + fib(n-2, cache))\n```"
+  "captured_at": "2026-06-01T18:35:37.937922+00:00",
+  "output": "# Using recursion with memoization (one-liner)\nfib = lambda n: n if n <= 1 else fib(n-1) + fib(n-2)\n\nOr a more efficient one-liner using a mathematical approach:\n\n```python\nfib = lambda n: int(((1.618033988749895 ** n - (-0.618033988749895) ** n) / 2.236067977499790) + 0.5)\n```\n\nThe first version is simpler but slower for large n. The second uses Binet's formula and is faster but less readable. For practical use, the first is recommended despite being O(2^n)."
 }
