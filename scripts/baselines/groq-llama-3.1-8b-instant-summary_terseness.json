@@ -2,6 +2,6 @@
   "provider": "groq",
   "model": "llama-3.1-8b-instant",
   "spec_id": "summary_terseness",
-  "captured_at": "2026-06-01T18:37:41.147679+00:00",
+  "captured_at": "2026-06-08T16:49:10.246385+00:00",
   "output": "Prince Hamlet seeks revenge for his father's murder, feigning madness while uncovering the truth behind King Claudius's guilt, ultimately leading to tragic consequences for himself and those around him."
 }
