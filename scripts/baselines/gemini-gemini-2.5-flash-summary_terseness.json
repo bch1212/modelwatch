@@ -2,6 +2,6 @@
   "provider": "gemini",
   "model": "gemini-2.5-flash",
   "spec_id": "summary_terseness",
-  "captured_at": "2026-06-08T16:48:42.868269+00:00",
-  "output": "Prince Hamlet's father's ghost reveals his murder by Claudius,"
+  "captured_at": "2026-06-15T17:53:15.537536+00:00",
+  "output": "Prince Hamlet's father's ghost reveals his murder by Claudius. Hamlet"
 }
