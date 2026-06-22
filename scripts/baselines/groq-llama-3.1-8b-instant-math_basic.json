@@ -2,6 +2,6 @@
   "provider": "groq",
   "model": "llama-3.1-8b-instant",
   "spec_id": "math_basic",
-  "captured_at": "2026-06-15T17:53:35.878046+00:00",
+  "captured_at": "2026-06-22T17:49:41.181037+00:00",
   "output": "391"
 }

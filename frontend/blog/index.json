@@ -1,5 +1,11 @@
 [
   {
+    "slug": "/blog/2026-06-22-drift/",
+    "title": "Stable week \u2014 no significant drift across the major providers",
+    "summary": "All canary specs scored below the medium threshold. Models behaving consistently with last week.",
+    "published_at": "2026-06-22"
+  },
+  {
     "slug": "/blog/2026-06-15-drift/",
     "title": "Stable week \u2014 no significant drift across the major providers",
     "summary": "All canary specs scored below the medium threshold. Models behaving consistently with last week.",

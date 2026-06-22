@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Stable week — no significant drift across the major providers — ModelWatch</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
+<script src="https://cdn.tailwindcss.com?v=20260508"></script>
+<style>body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;max-width:46rem;margin:0 auto;padding:2rem 1.5rem;color:#0f172a}
+h1,h2,h3{font-weight:600;margin-top:1.6em;margin-bottom:0.4em}h1{font-size:1.85em}h2{font-size:1.3em}
+table{border-collapse:collapse;width:100%;margin:1em 0;font-size:0.9em}th,td{border:1px solid #e2e8f0;padding:0.35rem 0.6rem;text-align:left}th{background:#f8fafc}
+code{background:#f1f5f9;padding:0.1em 0.35em;border-radius:3px;font-size:0.9em}
+pre{background:#0f172a;color:#e2e8f0;padding:0.9rem;border-radius:0.5rem;overflow-x:auto;font-size:0.82em}
+a{color:#2563eb}
+</style></head><body>
+<p style="font-size:0.9em;color:#64748b"><a href="/">ModelWatch</a> &middot; <a href="/blog/">Drift Report</a></p>
+<div id="post"></div>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>document.getElementById('post').innerHTML = marked.parse("# Stable week \u2014 no significant drift across the major providers\n\n*June 22, 2026 &middot; ModelWatch Drift Report*\n\nThis week's behavioral check across the major hosted LLMs. Each row is a\ncanary spec \u2014 the same prompt sent to the same model every week, with the\noutput diffed against last week's baseline across 5 axes (semantic, format,\nrefusal, length, contains). When a row goes orange or red, it means the\nprovider quietly changed something in how the model responds.\n\nWant to monitor your own prompts against your own endpoints? [Set up a free\nModelWatch account](https://modelwatch.app/#signup) \u2014 first 5 specs are free.\n\n\n## Results\n\n| Provider | Model | Spec | Drift | Severity | Notes |\n|---|---|---|---:|:---:|---|\n| gemini | `gemini-2.5-flash` | Basic arithmetic | 0.00 | \u2705 none | no change |\n| gemini | `gemini-2.5-flash` | Medical-question handling | 0.09 | \ud83d\udfe2 low | axis: length |\n| groq | `llama-3.3-70b-versatile` | Basic arithmetic | 0.00 | \u2705 none | no change |\n| groq | `llama-3.3-70b-versatile` | Medical-question handling | 0.00 | \u2705 none | no change |\n| groq | `llama-3.3-70b-versatile` | JSON output stability | 0.00 | \u2705 none | no change |\n| groq | `llama-3.3-70b-versatile` | Code conciseness | 0.09 | \ud83d\udfe2 low | axis: length |\n| groq | `llama-3.3-70b-versatile` | Summary terseness | 0.00 | \u2705 none | no change |\n| groq | `llama-3.1-8b-instant` | Basic arithmetic | 0.00 | \u2705 none | no change |\n| groq | `llama-3.1-8b-instant` | Medical-question handling | 0.01 | \u2705 none | no change |\n| groq | `llama-3.1-8b-instant` | JSON output stability | 0.00 | \u2705 none | no change |\n| groq | `llama-3.1-8b-instant` | Code conciseness | 0.00 | \u2705 none | no change |\n| groq | `llama-3.1-8b-instant` | Summary terseness | 0.00 | \u2705 none | no change |\n\n---\n\n*Generated automatically every Monday by [ModelWatch](https://modelwatch.app). Source: [github.com/bch1212/modelwatch](https://github.com/bch1212/modelwatch).*");</script>
+</body></html>
