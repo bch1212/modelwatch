@@ -2,6 +2,6 @@
   "provider": "gemini",
   "model": "gemini-2.5-flash",
   "spec_id": "math_basic",
-  "captured_at": "2026-09-14T18:20:26.011784+00:00",
+  "captured_at": "2026-09-21T18:27:27.569343+00:00",
   "output": "391"
 }
