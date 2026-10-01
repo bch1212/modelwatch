@@ -20,6 +20,7 @@ export ENV_FILE="${REPO_ROOT}/.env.railway"
 
 PROJECT_NAME="modelwatch"
 DOMAIN="modelwatch.app"
+RAILWAY_ENVIRONMENT="production"
 
 # ---------------------------------------------------------------------------
 # Load shared secrets
@@ -145,8 +146,11 @@ else
   echo "[railway] Already linked to a project"
 fi
 
+echo "[railway] Linking explicit environment: $RAILWAY_ENVIRONMENT"
+railway environment link "$RAILWAY_ENVIRONMENT" >/dev/null
+
 # Postgres add-on
-if ! railway variables --kv --service Postgres 2>/dev/null | grep -q "^DATABASE_URL="; then
+if ! railway variables --kv --service Postgres --environment "$RAILWAY_ENVIRONMENT" 2>/dev/null | grep -q "^DATABASE_URL="; then
   echo "[railway] Attaching Postgres add-on..."
   railway add --database postgres
 else
@@ -163,7 +167,7 @@ CORS_ALLOWED="https://$DOMAIN,https://www.$DOMAIN"
 # Create the FastAPI 'backend' service WITH all variables in one shot.
 # Per RegImpact pattern: --service backend with --variables flags creates the
 # service and lands the vars on it (not on Postgres).
-if ! railway variables --kv --service backend 2>/dev/null | grep -q "^ENCRYPTION_KEY="; then
+if ! railway variables --kv --service backend --environment "$RAILWAY_ENVIRONMENT" 2>/dev/null | grep -q "^ENCRYPTION_KEY="; then
   echo "[railway] Creating backend service with env vars..."
   railway add \
     --service backend \
@@ -179,7 +183,7 @@ if ! railway variables --kv --service backend 2>/dev/null | grep -q "^ENCRYPTION
     --variables 'DATABASE_URL=${{Postgres.DATABASE_URL}}'
 else
   echo "[railway] backend service exists; updating env vars..."
-  railway variables --service backend \
+  railway variables --service backend --environment "$RAILWAY_ENVIRONMENT" \
     --set "ENCRYPTION_KEY=$ENCRYPTION_KEY" \
     --set "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY" \
     --set "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET" \
@@ -198,7 +202,7 @@ fi
 echo
 echo "--- 4/6: Deploy ---"
 echo "[railway] Triggering deploy to backend service..."
-railway up --service backend --detach
+railway up --service backend --environment "$RAILWAY_ENVIRONMENT" --detach
 
 # Get the auto-generated public domain (always service-scoped to backend)
 RAILWAY_DOMAIN=$(railway domain --service backend 2>/dev/null | grep -o '[a-z0-9-]*\.up\.railway\.app' | head -1)
@@ -215,72 +219,32 @@ echo "[railway] Service is at: https://$RAILWAY_DOMAIN"
 # ---------------------------------------------------------------------------
 echo
 echo "--- 5/6: Railway custom domain ---"
-railway domain "api.$DOMAIN" --service backend >/dev/null 2>&1 || \
-  echo "[railway] api.$DOMAIN may already be set"
-
 STATUS_JSON=$(railway status --json)
-export STATUS_JSON DOMAIN
-read -r RAILWAY_CNAME VERIFY_HOST VERIFY_TOKEN <<< "$(python3 - <<'PYEOF'
-import json
-import os
-import urllib.request
+set +e
+RAILWAY_DNS=$(printf '%s' "$STATUS_JSON" | python3 "$REPO_ROOT/scripts/deploy_dns.py" railway \
+  --status-file - \
+  --environment "$RAILWAY_ENVIRONMENT" \
+  --service backend \
+  --domain "api.$DOMAIN")
+RAILWAY_DNS_STATUS=$?
+set -e
 
-status = json.loads(os.environ["STATUS_JSON"])
-project_id = status["id"]
-backend = next(
-    edge["node"]
-    for environment in status["environments"]["edges"]
-    for edge in environment["node"]["serviceInstances"]["edges"]
-    if edge["node"]["serviceName"] == "backend"
-)
+if [[ "$RAILWAY_DNS_STATUS" -eq 4 ]]; then
+  echo "[railway] Attaching api.$DOMAIN to backend in $RAILWAY_ENVIRONMENT..."
+  railway domain "api.$DOMAIN" --service backend --json >/dev/null
+  STATUS_JSON=$(railway status --json)
+  RAILWAY_DNS=$(printf '%s' "$STATUS_JSON" | python3 "$REPO_ROOT/scripts/deploy_dns.py" railway \
+    --status-file - \
+    --environment "$RAILWAY_ENVIRONMENT" \
+    --service backend \
+    --domain "api.$DOMAIN")
+elif [[ "$RAILWAY_DNS_STATUS" -ne 0 ]]; then
+  exit "$RAILWAY_DNS_STATUS"
+else
+  echo "[railway] api.$DOMAIN is already attached to backend in $RAILWAY_ENVIRONMENT"
+fi
 
-query = """query Domains($environmentId:String!, $projectId:String!, $serviceId:String!) {
-  domains(environmentId:$environmentId, projectId:$projectId, serviceId:$serviceId) {
-    customDomains { domain status {
-      dnsRecords { recordType requiredValue purpose }
-      verificationToken verificationDnsHost
-    } }
-  }
-}"""
-payload = json.dumps({
-    "query": query,
-    "variables": {
-        "environmentId": backend["environmentId"],
-        "projectId": project_id,
-        "serviceId": backend["serviceId"],
-    },
-}).encode()
-request = urllib.request.Request(
-    "https://backboard.railway.com/graphql/v2",
-    data=payload,
-    headers={
-        "Authorization": "Bearer " + os.environ["RAILWAY_API_TOKEN"],
-        "Content-Type": "application/json",
-        "User-Agent": "modelwatch-deploy",
-        "x-source": "modelwatch-deploy",
-    },
-)
-with urllib.request.urlopen(request, timeout=30) as response:
-    result = json.load(response)
-if result.get("errors"):
-    raise SystemExit(result["errors"][0]["message"])
-
-custom = next(
-    item for item in result["data"]["domains"]["customDomains"]
-    if item["domain"] == "api." + os.environ["DOMAIN"]
-)
-route = next(
-    record for record in custom["status"]["dnsRecords"]
-    if record["recordType"] == "DNS_RECORD_TYPE_CNAME"
-)
-print(
-    route["requiredValue"],
-    custom["status"].get("verificationDnsHost") or "",
-    custom["status"].get("verificationToken") or "",
-    sep="\t",
-)
-PYEOF
-)"
+IFS=$'\t' read -r RAILWAY_CNAME VERIFY_HOST VERIFY_TOKEN <<< "$RAILWAY_DNS"
 
 if [[ -z "$RAILWAY_CNAME" ]]; then
   echo "ERROR: Railway did not return the required CNAME target for api.$DOMAIN" >&2
@@ -296,13 +260,16 @@ fi
 # ---------------------------------------------------------------------------
 echo
 echo "--- 6/6: Cloudflare DNS ---"
+set +e
+python3 "$REPO_ROOT/scripts/deploy_dns.py" cloudflare \
+  --domain "$DOMAIN" \
+  --cname "$RAILWAY_CNAME" \
+  --verify-host "$VERIFY_HOST" \
+  --verify-token "$VERIFY_TOKEN"
+CLOUDFLARE_STATUS=$?
+set -e
 
-ZONE_RESP=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
-  -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
-  -H "Content-Type: application/json")
-ZONE_ID=$(echo "$ZONE_RESP" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['result'][0]['id'] if d.get('result') else '')")
-
-if [[ -z "$ZONE_ID" ]]; then
+if [[ "$CLOUDFLARE_STATUS" -eq 3 ]]; then
   echo "[cloudflare] Zone $DOMAIN not yet in your Cloudflare account."
   echo "             Add it: https://dash.cloudflare.com → Add a Site → $DOMAIN"
   echo "             Then update nameservers at your registrar (where you bought $DOMAIN)."
@@ -310,43 +277,9 @@ if [[ -z "$ZONE_ID" ]]; then
   echo
   echo "Until DNS is wired up, the API is live at: https://$RAILWAY_DOMAIN"
   echo "You can smoke-test the deploy now: curl https://$RAILWAY_DOMAIN/health"
-  exit 0
-fi
-echo "[cloudflare] Zone ID: $ZONE_ID"
-
-# Idempotent DNS upsert helper
-upsert_dns_record() {
-  local type="$1"
-  local name="$2"    # full hostname
-  local content="$3"
-  local proxied="$4" # JSON boolean: true or false
-
-  # Look up existing record
-  EXISTING=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=$type&name=$name" \
-    -H "Authorization: Bearer $CLOUDFLARE_TOKEN")
-  REC_ID=$(echo "$EXISTING" | python3 -c "import sys, json; d=json.load(sys.stdin); r=d.get('result') or []; print(r[0]['id'] if r else '')")
-
-  if [[ -n "$REC_ID" ]]; then
-    echo "[cloudflare] Updating $type $name"
-    curl -sS -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$REC_ID" \
-      -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
-      -H "Content-Type: application/json" \
-      --data "{\"type\":\"$type\",\"name\":\"$name\",\"content\":\"$content\",\"proxied\":$proxied}" \
-      | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'[cloudflare] {d.get(\"success\")}')" || true
-  else
-    echo "[cloudflare] Creating $type $name"
-    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-      -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
-      -H "Content-Type: application/json" \
-      --data "{\"type\":\"$type\",\"name\":\"$name\",\"content\":\"$content\",\"proxied\":$proxied}" \
-      | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'[cloudflare] {d.get(\"success\")}')" || true
-  fi
-}
-
-upsert_dns_record CNAME "api.$DOMAIN" "$RAILWAY_CNAME" false
-if [[ -n "$VERIFY_HOST" && -n "$VERIFY_TOKEN" ]]; then
-  [[ "$VERIFY_HOST" == *".$DOMAIN" ]] || VERIFY_HOST="$VERIFY_HOST.$DOMAIN"
-  upsert_dns_record TXT "$VERIFY_HOST" "$VERIFY_TOKEN" false
+  exit 1
+elif [[ "$CLOUDFLARE_STATUS" -ne 0 ]]; then
+  exit "$CLOUDFLARE_STATUS"
 fi
 
 # ---------------------------------------------------------------------------
