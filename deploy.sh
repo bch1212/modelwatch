@@ -5,7 +5,7 @@
 #   1. Creates Stripe product + 3 monthly prices (Pro $99, Team $299, Enterprise $999)
 #   2. Initializes Railway project + attaches Postgres add-on
 #   3. Sets all env vars on the backend service
-#   4. Adds modelwatch.app DNS records at Cloudflare pointing to Railway
+#   4. Adds the api.modelwatch.app DNS record pointing to Railway
 #   5. Triggers initial Railway deploy
 #
 # Idempotent — re-running is safe. Stripe lookup_keys + Railway service names
@@ -20,6 +20,7 @@ export ENV_FILE="${REPO_ROOT}/.env.railway"
 
 PROJECT_NAME="modelwatch"
 DOMAIN="modelwatch.app"
+RAILWAY_ENVIRONMENT="production"
 
 # ---------------------------------------------------------------------------
 # Load shared secrets
@@ -145,8 +146,11 @@ else
   echo "[railway] Already linked to a project"
 fi
 
+echo "[railway] Linking explicit environment: $RAILWAY_ENVIRONMENT"
+railway environment link "$RAILWAY_ENVIRONMENT" >/dev/null
+
 # Postgres add-on
-if ! railway variables --kv --service Postgres 2>/dev/null | grep -q "^DATABASE_URL="; then
+if ! railway variables --kv --service Postgres --environment "$RAILWAY_ENVIRONMENT" 2>/dev/null | grep -q "^DATABASE_URL="; then
   echo "[railway] Attaching Postgres add-on..."
   railway add --database postgres
 else
@@ -163,7 +167,7 @@ CORS_ALLOWED="https://$DOMAIN,https://www.$DOMAIN"
 # Create the FastAPI 'backend' service WITH all variables in one shot.
 # Per RegImpact pattern: --service backend with --variables flags creates the
 # service and lands the vars on it (not on Postgres).
-if ! railway variables --kv --service backend 2>/dev/null | grep -q "^ENCRYPTION_KEY="; then
+if ! railway variables --kv --service backend --environment "$RAILWAY_ENVIRONMENT" 2>/dev/null | grep -q "^ENCRYPTION_KEY="; then
   echo "[railway] Creating backend service with env vars..."
   railway add \
     --service backend \
@@ -179,7 +183,7 @@ if ! railway variables --kv --service backend 2>/dev/null | grep -q "^ENCRYPTION
     --variables 'DATABASE_URL=${{Postgres.DATABASE_URL}}'
 else
   echo "[railway] backend service exists; updating env vars..."
-  railway variables --service backend \
+  railway variables --service backend --environment "$RAILWAY_ENVIRONMENT" \
     --set "ENCRYPTION_KEY=$ENCRYPTION_KEY" \
     --set "STRIPE_SECRET_KEY=$STRIPE_SECRET_KEY" \
     --set "STRIPE_WEBHOOK_SECRET=$STRIPE_WEBHOOK_SECRET" \
@@ -198,7 +202,7 @@ fi
 echo
 echo "--- 4/6: Deploy ---"
 echo "[railway] Triggering deploy to backend service..."
-railway up --service backend --detach
+railway up --service backend --environment "$RAILWAY_ENVIRONMENT" --detach
 
 # Get the auto-generated public domain (always service-scoped to backend)
 RAILWAY_DOMAIN=$(railway domain --service backend 2>/dev/null | grep -o '[a-z0-9-]*\.up\.railway\.app' | head -1)
@@ -210,17 +214,62 @@ fi
 echo "[railway] Service is at: https://$RAILWAY_DOMAIN"
 
 # ---------------------------------------------------------------------------
-# 5. Cloudflare DNS — api.modelwatch.app + apex/www → Railway
+# 5. Railway custom domain — attach it before creating DNS so Railway can tell
+#    us the exact generated CNAME target and ownership-verification record.
 # ---------------------------------------------------------------------------
 echo
-echo "--- 5/6: Cloudflare DNS ---"
+echo "--- 5/6: Railway custom domain ---"
+STATUS_JSON=$(railway status --json)
+set +e
+RAILWAY_DNS=$(printf '%s' "$STATUS_JSON" | python3 "$REPO_ROOT/scripts/deploy_dns.py" railway \
+  --status-file - \
+  --environment "$RAILWAY_ENVIRONMENT" \
+  --service backend \
+  --domain "api.$DOMAIN")
+RAILWAY_DNS_STATUS=$?
+set -e
 
-ZONE_RESP=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
-  -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
-  -H "Content-Type: application/json")
-ZONE_ID=$(echo "$ZONE_RESP" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d['result'][0]['id'] if d.get('result') else '')")
+if [[ "$RAILWAY_DNS_STATUS" -eq 4 ]]; then
+  echo "[railway] Attaching api.$DOMAIN to backend in $RAILWAY_ENVIRONMENT..."
+  railway domain "api.$DOMAIN" --service backend --json >/dev/null
+  STATUS_JSON=$(railway status --json)
+  RAILWAY_DNS=$(printf '%s' "$STATUS_JSON" | python3 "$REPO_ROOT/scripts/deploy_dns.py" railway \
+    --status-file - \
+    --environment "$RAILWAY_ENVIRONMENT" \
+    --service backend \
+    --domain "api.$DOMAIN")
+elif [[ "$RAILWAY_DNS_STATUS" -ne 0 ]]; then
+  exit "$RAILWAY_DNS_STATUS"
+else
+  echo "[railway] api.$DOMAIN is already attached to backend in $RAILWAY_ENVIRONMENT"
+fi
 
-if [[ -z "$ZONE_ID" ]]; then
+IFS=$'\t' read -r RAILWAY_CNAME VERIFY_HOST VERIFY_TOKEN <<< "$RAILWAY_DNS"
+
+if [[ -z "$RAILWAY_CNAME" ]]; then
+  echo "ERROR: Railway did not return the required CNAME target for api.$DOMAIN" >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Cloudflare DNS — api.modelwatch.app → Railway
+#
+# The apex and www hostnames belong to the Cloudflare Pages frontend and are
+# managed by frontend/deploy.sh. Railway custom domains must be DNS-only while
+# Railway validates the CNAME and provisions its certificate.
+# ---------------------------------------------------------------------------
+echo
+echo "--- 6/6: Cloudflare DNS ---"
+set +e
+python3 "$REPO_ROOT/scripts/deploy_dns.py" cloudflare \
+  --domain "$DOMAIN" \
+  --cname "$RAILWAY_CNAME" \
+  --verify-host "$VERIFY_HOST" \
+  --verify-token "$VERIFY_TOKEN"
+CLOUDFLARE_STATUS=$?
+set -e
+
+if [[ "$CLOUDFLARE_STATUS" -eq 3 ]]; then
   echo "[cloudflare] Zone $DOMAIN not yet in your Cloudflare account."
   echo "             Add it: https://dash.cloudflare.com → Add a Site → $DOMAIN"
   echo "             Then update nameservers at your registrar (where you bought $DOMAIN)."
@@ -228,52 +277,10 @@ if [[ -z "$ZONE_ID" ]]; then
   echo
   echo "Until DNS is wired up, the API is live at: https://$RAILWAY_DOMAIN"
   echo "You can smoke-test the deploy now: curl https://$RAILWAY_DOMAIN/health"
-  exit 0
+  exit 1
+elif [[ "$CLOUDFLARE_STATUS" -ne 0 ]]; then
+  exit "$CLOUDFLARE_STATUS"
 fi
-echo "[cloudflare] Zone ID: $ZONE_ID"
-
-RAILWAY_HOST="${RAILWAY_DOMAIN#https://}"
-RAILWAY_HOST="${RAILWAY_HOST%%/*}"
-
-# Idempotent DNS upsert helper
-upsert_cname() {
-  local name="$1"   # full hostname
-  local target="$2" # CNAME target
-
-  # Look up existing record
-  EXISTING=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=CNAME&name=$name" \
-    -H "Authorization: Bearer $CLOUDFLARE_TOKEN")
-  REC_ID=$(echo "$EXISTING" | python3 -c "import sys, json; d=json.load(sys.stdin); r=d.get('result') or []; print(r[0]['id'] if r else '')")
-
-  if [[ -n "$REC_ID" ]]; then
-    echo "[cloudflare] Updating CNAME $name → $target"
-    curl -sS -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$REC_ID" \
-      -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
-      -H "Content-Type: application/json" \
-      --data "{\"type\":\"CNAME\",\"name\":\"$name\",\"content\":\"$target\",\"proxied\":true}" \
-      | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'[cloudflare] {d.get(\"success\")}')" || true
-  else
-    echo "[cloudflare] Creating CNAME $name → $target"
-    curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
-      -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
-      -H "Content-Type: application/json" \
-      --data "{\"type\":\"CNAME\",\"name\":\"$name\",\"content\":\"$target\",\"proxied\":true}" \
-      | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'[cloudflare] {d.get(\"success\")}')" || true
-  fi
-}
-
-upsert_cname "api.$DOMAIN" "$RAILWAY_HOST"
-upsert_cname "$DOMAIN"     "$RAILWAY_HOST"  # apex (CF auto-flattens)
-upsert_cname "www.$DOMAIN" "$RAILWAY_HOST"
-
-# ---------------------------------------------------------------------------
-# 6. Railway custom domain
-# ---------------------------------------------------------------------------
-echo
-echo "--- 6/6: Railway custom domain ---"
-railway domain "api.$DOMAIN" --service backend 2>/dev/null || echo "[railway] api.$DOMAIN may already be set"
-railway domain "$DOMAIN"     --service backend 2>/dev/null || true
-railway domain "www.$DOMAIN" --service backend 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 echo
@@ -281,7 +288,7 @@ echo "=== DONE ==="
 echo
 echo "Endpoints:"
 echo "  API:       https://api.$DOMAIN"
-echo "  Web:       https://$DOMAIN  (until frontend ships, redirects to API docs)"
+echo "  Web:       https://$DOMAIN  (deployed separately via frontend/deploy.sh)"
 echo "  Railway:   https://$RAILWAY_DOMAIN  (always available)"
 echo
 echo "Stripe webhook to register:"

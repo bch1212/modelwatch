@@ -71,7 +71,8 @@ First run prompts you to pick a workspace:
 ```
 Pick `Brett's Workspace` (or whichever workspace has the other products) and
 hit Enter. Re-runs skip both `init` and `add` — `[railway] Already linked` /
-`Postgres already attached`.
+`Postgres already attached`. The script explicitly links and targets Railway's
+`production` environment before service, deploy, and custom-domain operations.
 
 ### Step 4/6 — Deploy
 ```
@@ -85,41 +86,51 @@ Build Logs: https://railway.com/project/.../service/.../build/...
 The build takes 60-120 seconds. Note that `*.up.railway.app` URL — that's
 your fallback before DNS goes live.
 
-### Step 5/6 — Cloudflare DNS
+### Step 5/6 — Railway custom domain
+
+The script attaches only the API hostname to the backend, then reads Railway's
+exact generated CNAME target and ownership-verification record. The frontend
+hostnames stay attached to Cloudflare Pages.
+
+```
+--- 5/6: Railway custom domain ---
+```
+
+### Step 6/6 — Cloudflare DNS
 
 **First-ever run** (zone not yet added to Cloudflare):
 ```
---- 5/6: Cloudflare DNS ---
+--- 6/6: Cloudflare DNS ---
 [cloudflare] Zone modelwatch.app not yet in your Cloudflare account.
              Add it: https://dash.cloudflare.com → Add a Site → modelwatch.app
              Then update nameservers at your registrar...
 ```
-Script exits cleanly. **API is live at the railway.app URL right now** — go
-do the smoke tests in section 3, then come back here and add the zone:
+The script exits nonzero before the `DONE` banner so incomplete DNS cannot be
+mistaken for a completed deployment. **API is live at the railway.app URL right
+now** — go do the smoke tests in section 3, then come back here and add the zone:
 
 1. Cloudflare → Add a Site → `modelwatch.app` (Free plan is fine)
 2. Cloudflare assigns 2 nameservers (e.g. `cori.ns.cloudflare.com`)
 3. Log into your registrar (wherever you bought modelwatch.app) and replace
    the nameservers with the 2 from Cloudflare
 4. Wait for activation email (usually <1 hour)
-5. Re-run `bash deploy.sh` — Step 5 will detect the zone and wire DNS
+5. Re-run `bash deploy.sh` — Step 6 will detect the zone and wire DNS
 
 **Subsequent runs** (zone present):
 ```
-[cloudflare] Zone ID: 1234567890abcdef
-[cloudflare] Creating CNAME api.modelwatch.app → modelwatch-backend-production-XXXX.up.railway.app
-[cloudflare] True
-[cloudflare] Creating CNAME modelwatch.app → ...
-[cloudflare] Creating CNAME www.modelwatch.app → ...
+[cloudflare] created CNAME api.modelwatch.app
+[cloudflare] created TXT _railway-verify.api.modelwatch.app
 ```
 
-### Step 6/6 — Railway custom domain
-```
---- 6/6: Railway custom domain ---
-api.modelwatch.app added to backend
-modelwatch.app added to backend
-www.modelwatch.app added to backend
-```
+If another TXT record already exists at the Railway verification hostname (for
+example, Google site verification), the script leaves it untouched and creates
+an additional TXT record for Railway unless the exact Railway value is already
+present.
+
+The API CNAME is deliberately **DNS-only** so Railway can validate the domain
+and issue its certificate. Do not proxy this record through Cloudflare. The
+apex and `www` records are managed separately by `frontend/deploy.sh` and point
+to `modelwatch-web.pages.dev`.
 
 ### Final summary
 ```
@@ -149,7 +160,7 @@ Stripe webhook to register: ...
 4. After creating, click the endpoint → **Reveal signing secret**
 5. Compare it to `STRIPE_WEBHOOK_SECRET` in `.deploy-secrets.env`. If different:
    ```bash
-   railway variables --service backend --set "STRIPE_WEBHOOK_SECRET=whsec_NEW_VALUE_HERE"
+   railway variables --service backend --environment production --set "STRIPE_WEBHOOK_SECRET=whsec_NEW_VALUE_HERE"
    ```
    Wait ~30 seconds for Railway to redeploy with the new var.
 
