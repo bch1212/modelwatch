@@ -30,7 +30,7 @@ def test_mcp_runtime_version_comes_from_package_metadata():
     manifest = json.loads((ROOT / "mcp-server" / "server.json").read_text())
     source = (ROOT / "mcp-server" / "src" / "index.ts").read_text()
 
-    assert package["version"] == "0.1.1"
+    assert package["version"] == "0.1.2"
     assert lock["version"] == package["version"]
     assert lock["packages"][""]["version"] == package["version"]
     assert package["version"] == manifest["version"]
