@@ -43,7 +43,10 @@ def test_mcp_publish_workflow_uses_compatible_tools_and_waits_for_exact_version(
     workflow = (ROOT / ".github" / "workflows" / "publish-mcp.yml").read_text()
 
     assert 'node-version: "22.22.2"' in workflow
-    assert "npm install -g npm@12.2.0" in workflow
+    assert "npm install -g npm@" not in workflow
+    assert 'npm install --prefix "$RUNNER_TEMP/npm-cli" --no-save --ignore-scripts npm@12.2.0' in workflow
+    assert 'PINNED_NPM="$RUNNER_TEMP/npm-cli/node_modules/npm/bin/npm-cli.js"' in workflow
+    assert '"$PINNED_NPM" publish --provenance --access public' in workflow
     assert "expected=$(node -p \"require('./package.json').version\")" in workflow
     assert 'if [ "$ver" = "$expected" ]; then' in workflow
     assert "npm did not index version $expected" in workflow
