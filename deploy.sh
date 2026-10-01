@@ -5,7 +5,7 @@
 #   1. Creates Stripe product + 3 monthly prices (Pro $99, Team $299, Enterprise $999)
 #   2. Initializes Railway project + attaches Postgres add-on
 #   3. Sets all env vars on the backend service
-#   4. Adds modelwatch.app DNS records at Cloudflare pointing to Railway
+#   4. Adds the api.modelwatch.app DNS record pointing to Railway
 #   5. Triggers initial Railway deploy
 #
 # Idempotent — re-running is safe. Stripe lookup_keys + Railway service names
@@ -210,10 +210,92 @@ fi
 echo "[railway] Service is at: https://$RAILWAY_DOMAIN"
 
 # ---------------------------------------------------------------------------
-# 5. Cloudflare DNS — api.modelwatch.app + apex/www → Railway
+# 5. Railway custom domain — attach it before creating DNS so Railway can tell
+#    us the exact generated CNAME target and ownership-verification record.
 # ---------------------------------------------------------------------------
 echo
-echo "--- 5/6: Cloudflare DNS ---"
+echo "--- 5/6: Railway custom domain ---"
+railway domain "api.$DOMAIN" --service backend >/dev/null 2>&1 || \
+  echo "[railway] api.$DOMAIN may already be set"
+
+STATUS_JSON=$(railway status --json)
+export STATUS_JSON DOMAIN
+read -r RAILWAY_CNAME VERIFY_HOST VERIFY_TOKEN <<< "$(python3 - <<'PYEOF'
+import json
+import os
+import urllib.request
+
+status = json.loads(os.environ["STATUS_JSON"])
+project_id = status["id"]
+backend = next(
+    edge["node"]
+    for environment in status["environments"]["edges"]
+    for edge in environment["node"]["serviceInstances"]["edges"]
+    if edge["node"]["serviceName"] == "backend"
+)
+
+query = """query Domains($environmentId:String!, $projectId:String!, $serviceId:String!) {
+  domains(environmentId:$environmentId, projectId:$projectId, serviceId:$serviceId) {
+    customDomains { domain status {
+      dnsRecords { recordType requiredValue purpose }
+      verificationToken verificationDnsHost
+    } }
+  }
+}"""
+payload = json.dumps({
+    "query": query,
+    "variables": {
+        "environmentId": backend["environmentId"],
+        "projectId": project_id,
+        "serviceId": backend["serviceId"],
+    },
+}).encode()
+request = urllib.request.Request(
+    "https://backboard.railway.com/graphql/v2",
+    data=payload,
+    headers={
+        "Authorization": "Bearer " + os.environ["RAILWAY_API_TOKEN"],
+        "Content-Type": "application/json",
+        "User-Agent": "modelwatch-deploy",
+        "x-source": "modelwatch-deploy",
+    },
+)
+with urllib.request.urlopen(request, timeout=30) as response:
+    result = json.load(response)
+if result.get("errors"):
+    raise SystemExit(result["errors"][0]["message"])
+
+custom = next(
+    item for item in result["data"]["domains"]["customDomains"]
+    if item["domain"] == "api." + os.environ["DOMAIN"]
+)
+route = next(
+    record for record in custom["status"]["dnsRecords"]
+    if record["recordType"] == "DNS_RECORD_TYPE_CNAME"
+)
+print(
+    route["requiredValue"],
+    custom["status"].get("verificationDnsHost") or "",
+    custom["status"].get("verificationToken") or "",
+    sep="\t",
+)
+PYEOF
+)"
+
+if [[ -z "$RAILWAY_CNAME" ]]; then
+  echo "ERROR: Railway did not return the required CNAME target for api.$DOMAIN" >&2
+  exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Cloudflare DNS — api.modelwatch.app → Railway
+#
+# The apex and www hostnames belong to the Cloudflare Pages frontend and are
+# managed by frontend/deploy.sh. Railway custom domains must be DNS-only while
+# Railway validates the CNAME and provisions its certificate.
+# ---------------------------------------------------------------------------
+echo
+echo "--- 6/6: Cloudflare DNS ---"
 
 ZONE_RESP=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones?name=$DOMAIN" \
   -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
@@ -232,48 +314,40 @@ if [[ -z "$ZONE_ID" ]]; then
 fi
 echo "[cloudflare] Zone ID: $ZONE_ID"
 
-RAILWAY_HOST="${RAILWAY_DOMAIN#https://}"
-RAILWAY_HOST="${RAILWAY_HOST%%/*}"
-
 # Idempotent DNS upsert helper
-upsert_cname() {
-  local name="$1"   # full hostname
-  local target="$2" # CNAME target
+upsert_dns_record() {
+  local type="$1"
+  local name="$2"    # full hostname
+  local content="$3"
+  local proxied="$4" # JSON boolean: true or false
 
   # Look up existing record
-  EXISTING=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=CNAME&name=$name" \
+  EXISTING=$(curl -sS -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?type=$type&name=$name" \
     -H "Authorization: Bearer $CLOUDFLARE_TOKEN")
   REC_ID=$(echo "$EXISTING" | python3 -c "import sys, json; d=json.load(sys.stdin); r=d.get('result') or []; print(r[0]['id'] if r else '')")
 
   if [[ -n "$REC_ID" ]]; then
-    echo "[cloudflare] Updating CNAME $name → $target"
+    echo "[cloudflare] Updating $type $name"
     curl -sS -X PATCH "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$REC_ID" \
       -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
       -H "Content-Type: application/json" \
-      --data "{\"type\":\"CNAME\",\"name\":\"$name\",\"content\":\"$target\",\"proxied\":true}" \
+      --data "{\"type\":\"$type\",\"name\":\"$name\",\"content\":\"$content\",\"proxied\":$proxied}" \
       | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'[cloudflare] {d.get(\"success\")}')" || true
   else
-    echo "[cloudflare] Creating CNAME $name → $target"
+    echo "[cloudflare] Creating $type $name"
     curl -sS -X POST "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records" \
       -H "Authorization: Bearer $CLOUDFLARE_TOKEN" \
       -H "Content-Type: application/json" \
-      --data "{\"type\":\"CNAME\",\"name\":\"$name\",\"content\":\"$target\",\"proxied\":true}" \
+      --data "{\"type\":\"$type\",\"name\":\"$name\",\"content\":\"$content\",\"proxied\":$proxied}" \
       | python3 -c "import sys, json; d=json.load(sys.stdin); print(f'[cloudflare] {d.get(\"success\")}')" || true
   fi
 }
 
-upsert_cname "api.$DOMAIN" "$RAILWAY_HOST"
-upsert_cname "$DOMAIN"     "$RAILWAY_HOST"  # apex (CF auto-flattens)
-upsert_cname "www.$DOMAIN" "$RAILWAY_HOST"
-
-# ---------------------------------------------------------------------------
-# 6. Railway custom domain
-# ---------------------------------------------------------------------------
-echo
-echo "--- 6/6: Railway custom domain ---"
-railway domain "api.$DOMAIN" --service backend 2>/dev/null || echo "[railway] api.$DOMAIN may already be set"
-railway domain "$DOMAIN"     --service backend 2>/dev/null || true
-railway domain "www.$DOMAIN" --service backend 2>/dev/null || true
+upsert_dns_record CNAME "api.$DOMAIN" "$RAILWAY_CNAME" false
+if [[ -n "$VERIFY_HOST" && -n "$VERIFY_TOKEN" ]]; then
+  [[ "$VERIFY_HOST" == *".$DOMAIN" ]] || VERIFY_HOST="$VERIFY_HOST.$DOMAIN"
+  upsert_dns_record TXT "$VERIFY_HOST" "$VERIFY_TOKEN" false
+fi
 
 # ---------------------------------------------------------------------------
 echo
@@ -281,7 +355,7 @@ echo "=== DONE ==="
 echo
 echo "Endpoints:"
 echo "  API:       https://api.$DOMAIN"
-echo "  Web:       https://$DOMAIN  (until frontend ships, redirects to API docs)"
+echo "  Web:       https://$DOMAIN  (deployed separately via frontend/deploy.sh)"
 echo "  Railway:   https://$RAILWAY_DOMAIN  (always available)"
 echo
 echo "Stripe webhook to register:"

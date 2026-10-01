@@ -20,6 +20,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { createRequire } from "node:module";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
@@ -31,7 +32,8 @@ const API_BASE =
   process.env.MODELWATCH_API_BASE || "https://api.modelwatch.app";
 const API_KEY = process.env.MODELWATCH_API_KEY || "";
 
-const PKG_VERSION = "0.1.0";
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require("../package.json") as { version: string };
 
 type Provider = "openai" | "anthropic";
 type Frequency = "hourly" | "daily" | "weekly";

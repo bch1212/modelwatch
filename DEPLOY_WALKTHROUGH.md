@@ -85,11 +85,21 @@ Build Logs: https://railway.com/project/.../service/.../build/...
 The build takes 60-120 seconds. Note that `*.up.railway.app` URL — that's
 your fallback before DNS goes live.
 
-### Step 5/6 — Cloudflare DNS
+### Step 5/6 — Railway custom domain
+
+The script attaches only the API hostname to the backend, then reads Railway's
+exact generated CNAME target and ownership-verification record. The frontend
+hostnames stay attached to Cloudflare Pages.
+
+```
+--- 5/6: Railway custom domain ---
+```
+
+### Step 6/6 — Cloudflare DNS
 
 **First-ever run** (zone not yet added to Cloudflare):
 ```
---- 5/6: Cloudflare DNS ---
+--- 6/6: Cloudflare DNS ---
 [cloudflare] Zone modelwatch.app not yet in your Cloudflare account.
              Add it: https://dash.cloudflare.com → Add a Site → modelwatch.app
              Then update nameservers at your registrar...
@@ -102,24 +112,21 @@ do the smoke tests in section 3, then come back here and add the zone:
 3. Log into your registrar (wherever you bought modelwatch.app) and replace
    the nameservers with the 2 from Cloudflare
 4. Wait for activation email (usually <1 hour)
-5. Re-run `bash deploy.sh` — Step 5 will detect the zone and wire DNS
+5. Re-run `bash deploy.sh` — Step 6 will detect the zone and wire DNS
 
 **Subsequent runs** (zone present):
 ```
 [cloudflare] Zone ID: 1234567890abcdef
-[cloudflare] Creating CNAME api.modelwatch.app → modelwatch-backend-production-XXXX.up.railway.app
+[cloudflare] Creating CNAME api.modelwatch.app
 [cloudflare] True
-[cloudflare] Creating CNAME modelwatch.app → ...
-[cloudflare] Creating CNAME www.modelwatch.app → ...
+[cloudflare] Creating TXT _railway-verify.api.modelwatch.app
+[cloudflare] True
 ```
 
-### Step 6/6 — Railway custom domain
-```
---- 6/6: Railway custom domain ---
-api.modelwatch.app added to backend
-modelwatch.app added to backend
-www.modelwatch.app added to backend
-```
+The API CNAME is deliberately **DNS-only** so Railway can validate the domain
+and issue its certificate. Do not proxy this record through Cloudflare. The
+apex and `www` records are managed separately by `frontend/deploy.sh` and point
+to `modelwatch-web.pages.dev`.
 
 ### Final summary
 ```
