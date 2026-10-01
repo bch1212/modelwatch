@@ -30,10 +30,21 @@ def test_mcp_runtime_version_comes_from_package_metadata():
     manifest = json.loads((ROOT / "mcp-server" / "server.json").read_text())
     source = (ROOT / "mcp-server" / "src" / "index.ts").read_text()
 
-    assert package["version"] == "0.1.1"
+    assert package["version"] == "0.1.2"
     assert lock["version"] == package["version"]
     assert lock["packages"][""]["version"] == package["version"]
     assert package["version"] == manifest["version"]
     assert package["version"] == manifest["packages"][0]["version"]
     assert 'require("../package.json")' in source
     assert 'const PKG_VERSION = "' not in source
+
+
+def test_mcp_publish_workflow_uses_compatible_tools_and_waits_for_exact_version():
+    workflow = (ROOT / ".github" / "workflows" / "publish-mcp.yml").read_text()
+
+    assert 'node-version: "22.22.2"' in workflow
+    assert "npm install -g npm@12.2.0" in workflow
+    assert "expected=$(node -p \"require('./package.json').version\")" in workflow
+    assert 'if [ "$ver" = "$expected" ]; then' in workflow
+    assert "npm did not index version $expected" in workflow
+    assert "continuing anyway" not in workflow

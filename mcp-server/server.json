@@ -7,15 +7,17 @@
     "source": "github",
     "subfolder": "mcp-server"
   },
-  "version": "0.1.1",
+  "version": "0.1.2",
   "websiteUrl": "https://modelwatch.app",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "modelwatch-mcp",
-      "version": "0.1.1",
-      "transport": { "type": "stdio" },
+      "version": "0.1.2",
+      "transport": {
+        "type": "stdio"
+      },
       "environmentVariables": [
         {
           "name": "MODELWATCH_API_KEY",
