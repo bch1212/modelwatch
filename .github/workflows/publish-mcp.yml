@@ -26,24 +26,30 @@ jobs:
           node-version: "22.22.2"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Install npm with OIDC trusted publishing support
-        # Pin a Node/npm pair whose engine contracts are compatible. Avoid
-        # npm@latest here because its Node requirement can move independently.
-        run: npm install -g npm@12.2.0
+      - name: Install pinned npm with OIDC trusted publishing support
+        # Install beside setup-node's live global npm rather than replacing it.
+        # A global npm self-update can remove modules from the process that is
+        # performing the update on hosted runners.
+        run: |
+          npm install --prefix "$RUNNER_TEMP/npm-cli" --no-save --ignore-scripts npm@12.2.0
+          PINNED_NPM="$RUNNER_TEMP/npm-cli/node_modules/npm/bin/npm-cli.js"
+          "$PINNED_NPM" --version
 
       - name: Install + build
         # npm install (not npm ci) because lockfile may not be committed
         # cleanly across all dev environments — keep this resilient.
         run: |
-          npm install --no-audit --no-fund
-          npm run build
+          PINNED_NPM="$RUNNER_TEMP/npm-cli/node_modules/npm/bin/npm-cli.js"
+          "$PINNED_NPM" install --no-audit --no-fund
+          "$PINNED_NPM" run build
 
       - name: Publish to npm (idempotent)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          PINNED_NPM="$RUNNER_TEMP/npm-cli/node_modules/npm/bin/npm-cli.js"
           set +e
-          out=$(npm publish --provenance --access public 2>&1)
+          out=$("$PINNED_NPM" publish --provenance --access public 2>&1)
           rc=$?
           echo "$out"
           if [ $rc -ne 0 ] && echo "$out" | grep -qiE "cannot publish over|previously published|already published"; then
