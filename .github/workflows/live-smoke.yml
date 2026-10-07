@@ -1,0 +1,33 @@
+name: Live production smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-hosts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify canonical API over trusted HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 --retry-delay 3 --max-time 20 \
+            https://api.modelwatch.app/health -o health.json
+          python3 - <<'PY'
+          import json
+          with open('health.json', encoding='utf-8') as response:
+              health = json.load(response)
+          assert health == {'status': 'ok', 'service': 'modelwatch'}, health
+          PY
+      - name: Verify production frontend hostnames over trusted HTTPS
+        shell: bash
+        run: |
+          set -euo pipefail
+          for host in modelwatch.app www.modelwatch.app; do
+            curl --fail --location --silent --show-error --retry 3 --retry-delay 3 \
+              --max-time 20 "https://${host}/" -o /dev/null
+          done
