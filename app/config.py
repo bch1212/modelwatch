@@ -2,6 +2,7 @@
 
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from cryptography.fernet import Fernet
 
 
 class Settings(BaseSettings):
@@ -50,3 +51,11 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def validate_runtime_security(settings: Settings) -> None:
+    """Reject placeholder or invalid at-rest encryption keys before serving."""
+    try:
+        Fernet(settings.encryption_key.encode())
+    except (ValueError, TypeError) as exc:
+        raise ValueError("ENCRYPTION_KEY must be a valid Fernet key before startup") from exc

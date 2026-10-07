@@ -25,7 +25,7 @@ from app.models.schemas import (
 )
 from app.services.drift_detector import run_spec
 from app.services import alerts
-from app.services.billing import get_limits
+from app.services.billing import get_limits, reserve_run
 
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
@@ -57,14 +57,13 @@ async def _run_scheduled_specs(schedule: SpecSchedule):
 
                 # Check run limit
                 limits = get_limits(workspace.plan)
-                if workspace.runs_this_month >= limits["runs_per_month"]:
+                if not await reserve_run(db, workspace, limits["runs_per_month"]):
                     logger.warning(
                         f"Workspace {workspace.id} hit run limit, skipping spec {spec.id}"
                     )
                     continue
 
                 run = await run_spec(db, spec)
-                workspace.runs_this_month += 1
 
                 # Alert on drift
                 if run.drift_score and run.drift_score > 0.05:

@@ -12,7 +12,7 @@ from app.models.schemas import Workspace, Endpoint, Spec, Run, DriftEvent
 from app.models.api_models import (
     SpecCreate, SpecUpdate, SpecOut, RunOut, RunTrigger, DriftEventOut,
 )
-from app.services.billing import get_limits, check_limit
+from app.services.billing import get_limits, check_limit, reserve_run
 from app.services.drift_detector import run_spec
 from app.services import alerts
 
@@ -147,13 +147,6 @@ async def trigger_run(
     db: AsyncSession = Depends(get_db),
 ):
     """Manually trigger a run for a spec."""
-    # Check run limit
-    limits = get_limits(workspace.plan)
-    try:
-        check_limit(workspace.runs_this_month, limits["runs_per_month"], "Monthly runs")
-    except ValueError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-
     result = await db.execute(
         select(Spec).join(Endpoint)
         .where(Spec.id == spec_id, Endpoint.workspace_id == workspace.id)
@@ -162,8 +155,10 @@ async def trigger_run(
     if not spec:
         raise HTTPException(status_code=404, detail="Spec not found")
 
+    limits = get_limits(workspace.plan)
+    if not await reserve_run(db, workspace, limits["runs_per_month"]):
+        raise HTTPException(status_code=403, detail="Monthly runs limit reached. Upgrade your plan.")
     run = await run_spec(db, spec)
-    workspace.runs_this_month += 1
 
     # If drift event was created, send alerts
     if run.drift_score and run.drift_score > 0.05:

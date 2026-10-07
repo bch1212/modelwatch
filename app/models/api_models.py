@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.models.schemas import (
     Plan, SpecSchedule, RunStatus, DriftSeverity, Provider,
@@ -55,20 +55,32 @@ class EndpointCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     provider: Provider
     model: str = Field(..., min_length=1, max_length=255)
-    system_prompt: Optional[str] = None
-    temperature: float = 0.0
-    max_tokens: int = 1024
+    system_prompt: Optional[str] = Field(None, max_length=32768)
+    temperature: float = Field(0.0, ge=0, le=2, allow_inf_nan=False)
+    max_tokens: int = Field(1024, ge=1, le=32768)
     extra_params: dict = Field(default_factory=dict)
+
+    @field_validator("extra_params")
+    @classmethod
+    def safe_params(cls, value: dict) -> dict:
+        if set(value) - {"top_p", "stop", "seed", "frequency_penalty", "presence_penalty"}:
+            raise ValueError("Unsupported provider parameter")
+        return value
 
 
 class EndpointUpdate(BaseModel):
     name: Optional[str] = None
     model: Optional[str] = None
-    system_prompt: Optional[str] = None
-    temperature: Optional[float] = None
-    max_tokens: Optional[int] = None
+    system_prompt: Optional[str] = Field(None, max_length=32768)
+    temperature: Optional[float] = Field(None, ge=0, le=2, allow_inf_nan=False)
+    max_tokens: Optional[int] = Field(None, ge=1, le=32768)
     extra_params: Optional[dict] = None
     is_active: Optional[bool] = None
+
+    @field_validator("extra_params")
+    @classmethod
+    def safe_params(cls, value: dict | None) -> dict | None:
+        return EndpointCreate.safe_params(value) if value is not None else None
 
 
 class EndpointOut(BaseModel):
@@ -90,31 +102,56 @@ class EndpointOut(BaseModel):
 
 class SpecCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = None
-    input_text: str = Field(..., min_length=1)
+    description: Optional[str] = Field(None, max_length=4096)
+    input_text: str = Field(..., min_length=1, max_length=20000)
     expected_format: Optional[str] = None
     expected_json_schema: Optional[dict] = None
     expected_contains: Optional[list[str]] = None
     expected_not_contains: Optional[list[str]] = None
-    min_length: Optional[int] = None
-    max_length: Optional[int] = None
-    semantic_threshold: float = 0.85
+    min_length: Optional[int] = Field(None, ge=0, le=100000)
+    max_length: Optional[int] = Field(None, ge=0, le=100000)
+    semantic_threshold: float = Field(0.85, ge=0, le=1, allow_inf_nan=False)
     schedule: SpecSchedule = SpecSchedule.daily
+
+    @field_validator("expected_json_schema")
+    @classmethod
+    def valid_schema(cls, value: dict | None) -> dict | None:
+        if value is not None and (not isinstance(value.get("required", []), list)
+                                  or any(not isinstance(k, str) for k in value.get("required", []))):
+            raise ValueError("JSON schema required must be a list of strings")
+        return value
+
+    @model_validator(mode="after")
+    def valid_lengths(self):
+        if self.min_length is not None and self.max_length is not None and self.min_length > self.max_length:
+            raise ValueError("min_length must not exceed max_length")
+        return self
 
 
 class SpecUpdate(BaseModel):
     name: Optional[str] = None
-    description: Optional[str] = None
-    input_text: Optional[str] = None
+    description: Optional[str] = Field(None, max_length=4096)
+    input_text: Optional[str] = Field(None, min_length=1, max_length=20000)
     expected_format: Optional[str] = None
     expected_json_schema: Optional[dict] = None
     expected_contains: Optional[list[str]] = None
     expected_not_contains: Optional[list[str]] = None
-    min_length: Optional[int] = None
-    max_length: Optional[int] = None
-    semantic_threshold: Optional[float] = None
+    min_length: Optional[int] = Field(None, ge=0, le=100000)
+    max_length: Optional[int] = Field(None, ge=0, le=100000)
+    semantic_threshold: Optional[float] = Field(None, ge=0, le=1, allow_inf_nan=False)
     schedule: Optional[SpecSchedule] = None
     is_active: Optional[bool] = None
+
+    @field_validator("expected_json_schema")
+    @classmethod
+    def valid_schema(cls, value: dict | None) -> dict | None:
+        return SpecCreate.valid_schema(value)
+
+    @model_validator(mode="after")
+    def valid_lengths(self):
+        if self.min_length is not None and self.max_length is not None and self.min_length > self.max_length:
+            raise ValueError("min_length must not exceed max_length")
+        return self
 
 
 class SpecOut(BaseModel):

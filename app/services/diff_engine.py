@@ -85,6 +85,8 @@ def check_json_schema(text: str, schema: dict) -> bool:
     except (json.JSONDecodeError, ValueError):
         return False
     required = schema.get("required", [])
+    if not isinstance(required, list) or any(not isinstance(k, str) for k in required):
+        return False
     if isinstance(data, dict):
         return all(k in data for k in required)
     return True

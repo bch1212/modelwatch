@@ -36,6 +36,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import sys
 import time
 from datetime import date, datetime, timezone
@@ -66,10 +67,10 @@ async def embed(text: str) -> list[float] | None:
             model = "gemini-embedding-001"
             url = (
                 "https://generativelanguage.googleapis.com/v1beta/models/"
-                f"{model}:embedContent?key={gemini_key}"
+                f"{model}:embedContent"
             )
             async with httpx.AsyncClient(timeout=30) as c:
-                r = await c.post(url, json={
+                r = await c.post(url, headers={"x-goog-api-key": gemini_key}, json={
                     "model": f"models/{model}",
                     "content": {"parts": [{"text": text}]},
                 })
@@ -77,7 +78,7 @@ async def embed(text: str) -> list[float] | None:
                 data = r.json()
             return data.get("embedding", {}).get("values")
         except Exception as e:
-            print(f"  ! gemini embed failed: {e}", file=sys.stderr)
+            print(f"  ! gemini embed failed: {safe_error(e)}", file=sys.stderr)
     openai_key = os.environ.get("OPENAI_API_KEY")
     if openai_key:
         return await get_embedding(text, openai_key)
@@ -199,7 +200,7 @@ async def call_gemini(model: str, prompt: str) -> str:
     key = os.environ["GEMINI_API_KEY"]
     url = (
         f"https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{urllib.parse.quote(model)}:generateContent?key={key}"
+        f"{urllib.parse.quote(model)}:generateContent"
     )
     body = {
         "contents": [{"parts": [{"text": prompt}]}],
@@ -207,7 +208,7 @@ async def call_gemini(model: str, prompt: str) -> str:
     }
     import httpx
     async with httpx.AsyncClient(timeout=60) as c:
-        r = await c.post(url, json=body)
+        r = await c.post(url, headers={"x-goog-api-key": key}, json=body)
         r.raise_for_status()
         data = r.json()
     cand = (data.get("candidates") or [{}])[0]
@@ -302,6 +303,22 @@ def bucket(score: float) -> str:
 def emoji_for(sev: str) -> str:
     return {"none": "✅", "low": "🟢", "medium": "🟡", "high": "🟠", "critical": "🔴"}.get(sev, "•")
 
+def safe_error(exc: Exception) -> str:
+    """Never print provider secrets in public CI logs, even if SDKs echo them."""
+    message = str(exc)
+    for name in ("GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY"):
+        value = os.environ.get(name)
+        if value:
+            message = message.replace(value, "[REDACTED]")
+    return message[:500]
+
+def code_block(output: str) -> list[str]:
+    """Use a fence longer than any run of backticks in untrusted model output."""
+    text = output[:600]
+    longest = max((len(run) for run in re.findall(r"`+", text)), default=0)
+    fence = "`" * max(3, longest + 1)
+    return [fence, text, fence]
+
 
 # ---------------------------------------------------------------------------
 # Blog post rendering
@@ -371,14 +388,10 @@ def render_post(today: date, results: list[dict]) -> str:
             lines.append(f"Drift score **{r['drift_score']:.2f}** ({r['severity']}).")
             lines.append("")
             lines.append("**Last week:**")
-            lines.append("```")
-            lines.append((r.get("baseline_output") or "")[:600])
-            lines.append("```")
+            lines.extend(code_block(r.get("baseline_output") or ""))
             lines.append("")
             lines.append("**This week:**")
-            lines.append("```")
-            lines.append((r.get("current_output") or "")[:600])
-            lines.append("```")
+            lines.extend(code_block(r.get("current_output") or ""))
             lines.append("")
 
     lines.extend([
@@ -441,7 +454,7 @@ async def main() -> int:
                 current = await call_endpoint(ep, spec["prompt"])
             except Exception as e:
                 msg = str(e).lower()
-                print(f"  ! call failed: {e}", file=sys.stderr)
+                print(f"  ! call failed: {safe_error(e)}", file=sys.stderr)
                 # Two consecutive 429s on the same provider in a row → treat
                 # as daily-quota and skip the rest of that provider's work.
                 if "429" in msg or "rate" in msg:
@@ -475,7 +488,7 @@ async def main() -> int:
                 )
                 score = float(diff.drift_score)
             except Exception as e:
-                print(f"  ! diff failed: {e}", file=sys.stderr)
+                print(f"  ! diff failed: {safe_error(e)}", file=sys.stderr)
                 continue
 
             # Identify the heaviest contributing axis (for the "Notes" column)
@@ -520,6 +533,7 @@ async def main() -> int:
     # Cheap markdown → html so the slug renders in browsers without a build step
     post_html_path.parent.mkdir(parents=True, exist_ok=True)
     rendered = body.split("---", 2)[-1].strip()
+    safe_rendered = json.dumps(rendered).replace("<", "\\u003c")
     html = f"""<!doctype html><html lang="en"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>{title_from(body)} — ModelWatch</title>
@@ -535,7 +549,7 @@ a{{color:#2563eb}}
 <p style="font-size:0.9em;color:#64748b"><a href="/">ModelWatch</a> &middot; <a href="/blog/">Drift Report</a></p>
 <div id="post"></div>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script>document.getElementById('post').innerHTML = marked.parse({json.dumps(rendered)});</script>
+<script>document.getElementById('post').innerHTML = marked.parse({safe_rendered});</script>
 </body></html>
 """
     post_html_path.write_text(html)

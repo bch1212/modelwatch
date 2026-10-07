@@ -28,9 +28,26 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const API_BASE =
-  process.env.MODELWATCH_API_BASE || "https://api.modelwatch.app";
+// A misconfigured base URL must never receive a workspace bearer key over
+// plaintext HTTP, or via URL credentials, query parameters, or redirects.
+function validateApiBase(raw: string): string {
+  let url: URL;
+  try { url = new URL(raw); } catch {
+    throw new Error("MODELWATCH_API_BASE must be a valid HTTPS URL.");
+  }
+  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
+  if ((url.protocol !== "https:" && !(loopback && url.protocol === "http:")) ||
+      url.username || url.password || url.search || url.hash || url.pathname !== "/") {
+    throw new Error("MODELWATCH_API_BASE must be HTTPS (HTTP only for loopback), with no credentials, path, query or fragment.");
+  }
+  return url.origin;
+}
+
+const API_BASE = validateApiBase(process.env.MODELWATCH_API_BASE || "https://api.modelwatch.app");
 const API_KEY = process.env.MODELWATCH_API_KEY || "";
+if (API_KEY && !/^mw_[A-Za-z0-9_-]{32,}$/.test(API_KEY)) {
+  throw new Error("MODELWATCH_API_KEY has an invalid format; expected an mw_ workspace key.");
+}
 
 const require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = require("../package.json") as { version: string };
@@ -202,6 +219,8 @@ async function callApi(
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
   });
   let json: any = null;
   const ct = r.headers.get("content-type") || "";

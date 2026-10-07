@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.config import get_settings
+from app.config import get_settings, validate_runtime_security
 from app.models.database import get_engine, Base
 from app.services.scheduler import start_scheduler, stop_scheduler
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Create tables + start scheduler on startup, clean up on shutdown."""
+    validate_runtime_security(get_settings())
     eng = get_engine()
     async with eng.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -41,7 +42,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # lock down in production
+    allow_origins=[
+        "https://modelwatch.app", "https://www.modelwatch.app",
+        "https://modelwatch-web.pages.dev",
+        "http://localhost:8000", "http://localhost:5173",
+    ],
+    allow_origin_regex=r"https://[a-z0-9-]+\.modelwatch-web\.pages\.dev",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -5,7 +5,7 @@ from typing import Optional
 from uuid import UUID
 
 import stripe
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -143,3 +143,26 @@ def check_limit(current: int, limit: int, resource: str) -> None:
         raise ValueError(
             f"{resource} limit reached ({limit}). Upgrade your plan."
         )
+
+
+async def reserve_run(db: AsyncSession, workspace: Workspace, limit: int) -> bool:
+    """Atomically claim one run before calling a paid provider.
+
+    The conditional UPDATE serializes competing manual/scheduled runs in the
+    database. A rollback also undoes the reservation if the request fails.
+    """
+    result = await db.execute(
+        update(Workspace)
+        .where(
+            Workspace.id == workspace.id,
+            Workspace.plan == workspace.plan,
+            Workspace.runs_this_month < limit,
+        )
+        .values(runs_this_month=Workspace.runs_this_month + 1)
+        .returning(Workspace.runs_this_month)
+        .execution_options(synchronize_session=False)
+    )
+    if result.scalar_one_or_none() is None:
+        return False
+    await db.refresh(workspace, attribute_names=["runs_this_month"])
+    return True

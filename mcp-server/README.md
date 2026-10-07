@@ -33,6 +33,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 Get a free key at <https://modelwatch.app/#signup> (5 specs, 500 runs/mo, no
 card). Then restart Claude Desktop.
 
+The example configuration stores a plaintext key in a local config file.
+Restrict that file to your user account, do not commit it, and rotate the key
+if it is exposed. The key never belongs in a command-line argument.
+
 ## Tools
 
 | Tool | What it does |
@@ -63,7 +67,9 @@ detected.
 | `MODELWATCH_API_KEY` | Yes | — |
 | `MODELWATCH_API_BASE` | No | `https://api.modelwatch.app` |
 
-Self-hosted? Point `MODELWATCH_API_BASE` at your Railway URL.
+Self-hosted? Point `MODELWATCH_API_BASE` at an HTTPS origin. HTTP is accepted
+only for loopback development; paths, query strings, URL credentials and
+redirects are rejected before a key is sent.
 
 ## Source
 

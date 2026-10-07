@@ -48,6 +48,6 @@ Override with `<script>window.MW_API_BASE='...'</script>` before `app.js`.
 
 ## CORS
 
-The FastAPI backend sets `allow_origins=["*"]` so the Pages origins work
-out of the box. If you ever lock that down, the Pages preview hostnames
-look like `<hash>.modelwatch-web.pages.dev`.
+The FastAPI backend allows only the ModelWatch custom domains, the
+`modelwatch-web.pages.dev` project/preview origins, and documented local dev
+origins. Preview hostnames look like `<hash>.modelwatch-web.pages.dev`.
