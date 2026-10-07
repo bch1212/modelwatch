@@ -33,6 +33,10 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 Get a free key at <https://modelwatch.app/#signup> (5 specs, 500 runs/mo, no
 card). Then restart Claude Desktop.
 
+The example configuration stores a plaintext key in a local config file.
+Restrict that file to your user account, do not commit it, and rotate the key
+if it is exposed. The key never belongs in a command-line argument.
+
 ## Tools
 
 | Tool | What it does |
@@ -40,12 +44,12 @@ card). Then restart Claude Desktop.
 | `list_endpoints` | Show monitored LLM endpoints |
 | `create_endpoint` | Add an endpoint (provider + model) |
 | `list_specs` | Show behavioral specs |
-| `create_spec` | Add a spec (prompt + frequency + severity threshold) |
+| `create_spec` | Add a spec (prompt + schedule + optional semantic similarity threshold) |
 | `run_spec` | Run a spec on demand; baseline if first run |
 | `reset_baseline` | Re-baseline after an intentional model swap |
 | `get_drift_events` | Recent drift events across the workspace |
 | `get_spec_history` | Run history for one spec |
-| `get_health` | Workspace KPIs (plan, spec count, runs this month) |
+| `get_health` | Per-spec health status, last drift score and last run time |
 
 ## Example session
 
@@ -63,7 +67,9 @@ detected.
 | `MODELWATCH_API_KEY` | Yes | — |
 | `MODELWATCH_API_BASE` | No | `https://api.modelwatch.app` |
 
-Self-hosted? Point `MODELWATCH_API_BASE` at your Railway URL.
+Self-hosted? Point `MODELWATCH_API_BASE` at an HTTPS origin. HTTP is accepted
+only for loopback development; paths, query strings, URL credentials and
+redirects are rejected before a key is sent.
 
 ## Source
 

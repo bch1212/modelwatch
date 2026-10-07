@@ -12,7 +12,7 @@ from app.models.schemas import Workspace, Endpoint, Spec, Run, DriftEvent
 from app.models.api_models import (
     SpecCreate, SpecUpdate, SpecOut, RunOut, RunTrigger, DriftEventOut,
 )
-from app.services.billing import get_limits, check_limit
+from app.services.billing import get_limits, check_limit, reserve_run
 from app.services.drift_detector import run_spec
 from app.services import alerts
 
@@ -117,7 +117,12 @@ async def update_spec(
     spec = result.scalar_one_or_none()
     if not spec:
         raise HTTPException(status_code=404, detail="Spec not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    min_length = updates.get("min_length", spec.min_length)
+    max_length = updates.get("max_length", spec.max_length)
+    if min_length is not None and max_length is not None and min_length > max_length:
+        raise HTTPException(status_code=422, detail="min_length must not exceed max_length")
+    for field, value in updates.items():
         setattr(spec, field, value)
     return SpecOut.from_orm_with_baseline(spec)
 
@@ -147,13 +152,6 @@ async def trigger_run(
     db: AsyncSession = Depends(get_db),
 ):
     """Manually trigger a run for a spec."""
-    # Check run limit
-    limits = get_limits(workspace.plan)
-    try:
-        check_limit(workspace.runs_this_month, limits["runs_per_month"], "Monthly runs")
-    except ValueError as exc:
-        raise HTTPException(status_code=403, detail=str(exc))
-
     result = await db.execute(
         select(Spec).join(Endpoint)
         .where(Spec.id == spec_id, Endpoint.workspace_id == workspace.id)
@@ -162,8 +160,10 @@ async def trigger_run(
     if not spec:
         raise HTTPException(status_code=404, detail="Spec not found")
 
+    limits = get_limits(workspace.plan)
+    if not await reserve_run(db, workspace, limits["runs_per_month"]):
+        raise HTTPException(status_code=403, detail="Monthly runs limit reached. Upgrade your plan.")
     run = await run_spec(db, spec)
-    workspace.runs_this_month += 1
 
     # If drift event was created, send alerts
     if run.drift_score and run.drift_score > 0.05:

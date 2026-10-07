@@ -24,13 +24,13 @@
   var API = detectApiBase();
 
   // ---------------------------------------------------------------------------
-  // Auth: API key in sessionStorage (clears on close), with localStorage opt-in
+  // Auth: API key is scoped to this browser tab; clear legacy persistent keys.
   // ---------------------------------------------------------------------------
   var KEY_NAME = 'mw_api_key';
-  function getKey() { return sessionStorage.getItem(KEY_NAME) || localStorage.getItem(KEY_NAME); }
-  function setKey(k, persist) {
+  localStorage.removeItem(KEY_NAME);
+  function getKey() { return sessionStorage.getItem(KEY_NAME); }
+  function setKey(k) {
     sessionStorage.setItem(KEY_NAME, k);
-    if (persist) localStorage.setItem(KEY_NAME, k);
   }
   function clearKey() {
     sessionStorage.removeItem(KEY_NAME);
@@ -164,7 +164,7 @@
     var err = document.getElementById('login-error');
     err.textContent = '';
     if (!/^mw_/.test(key)) { err.textContent = 'Keys start with mw_'; return; }
-    setKey(key, true);
+    setKey(key);
     api('GET', '/api/workspaces/me').then(showApp).catch(function (e2) {
       clearKey();
       err.textContent = 'Invalid key (' + (e2.status || 'network') + ')';
@@ -266,8 +266,8 @@
 
   function refreshWorkspace() {
     api('GET', '/api/workspaces/me').then(function (ws) {
-      var label = (ws.name || ws.workspace_name || 'Workspace') + ' &middot; ' + (ws.email || '');
-      document.getElementById('ws-info').innerHTML = label;
+      var label = (ws.name || ws.workspace_name || 'Workspace') + ' · ' + (ws.email || '');
+      document.getElementById('ws-info').textContent = label;
       document.getElementById('kpi-plan').textContent = (ws.plan || 'free').toUpperCase();
     }).catch(function (err) {
       if (err.status === 401 || err.status === 403) { clearKey(); showLogin(); }

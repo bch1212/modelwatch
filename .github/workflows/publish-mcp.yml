@@ -36,12 +36,12 @@ jobs:
           "$PINNED_NPM" --version
 
       - name: Install + build
-        # npm install (not npm ci) because lockfile may not be committed
-        # cleanly across all dev environments — keep this resilient.
+        # Enforce the audited, committed transitive dependency graph.
         run: |
           PINNED_NPM="$RUNNER_TEMP/npm-cli/node_modules/npm/bin/npm-cli.js"
-          "$PINNED_NPM" install --no-audit --no-fund
-          "$PINNED_NPM" run build
+          "$PINNED_NPM" ci --no-audit --no-fund
+          "$PINNED_NPM" audit --omit=dev --audit-level=low
+          "$PINNED_NPM" test
 
       - name: Publish to npm (idempotent)
         env:

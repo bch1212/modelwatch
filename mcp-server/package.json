@@ -1,6 +1,6 @@
 {
   "name": "modelwatch-mcp",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "MCP server for ModelWatch — continuous behavioral drift monitoring for LLM-powered applications.",
   "mcpName": "io.github.bch1212/modelwatch",
   "license": "MIT",
@@ -19,11 +19,12 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json && chmod +x dist/index.js",
+    "test": "npm run build && node --test test/*.test.mjs",
     "dev": "tsx src/index.ts",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.0.4"
+    "@modelcontextprotocol/sdk": "^1.31.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.12",

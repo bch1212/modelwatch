@@ -10,7 +10,7 @@
 //   - reset_baseline      Re-baseline a spec (use after intentional model change).
 //   - get_drift_events    Fetch recent drift events for the workspace.
 //   - get_spec_history    Pull the run history for a single spec.
-//   - get_health          Workspace KPIs — plan, spec count, runs this month.
+//   - get_health          Per-spec health across the workspace.
 //
 // Configuration (env):
 //   MODELWATCH_API_KEY    Required. mw_… key from https://modelwatch.app
@@ -28,23 +28,39 @@ import {
   McpError,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const API_BASE =
-  process.env.MODELWATCH_API_BASE || "https://api.modelwatch.app";
+// A misconfigured base URL must never receive a workspace bearer key over
+// plaintext HTTP, or via URL credentials, query parameters, or redirects.
+function validateApiBase(raw: string): string {
+  let url: URL;
+  try { url = new URL(raw); } catch {
+    throw new Error("MODELWATCH_API_BASE must be a valid HTTPS URL.");
+  }
+  const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
+  if ((url.protocol !== "https:" && !(loopback && url.protocol === "http:")) ||
+      url.username || url.password || url.search || url.hash || url.pathname !== "/") {
+    throw new Error("MODELWATCH_API_BASE must be HTTPS (HTTP only for loopback), with no credentials, path, query or fragment.");
+  }
+  return url.origin;
+}
+
+const API_BASE = validateApiBase(process.env.MODELWATCH_API_BASE || "https://api.modelwatch.app");
 const API_KEY = process.env.MODELWATCH_API_KEY || "";
+if (API_KEY && !/^mw_[A-Za-z0-9_-]{32,}$/.test(API_KEY)) {
+  throw new Error("MODELWATCH_API_KEY has an invalid format; expected an mw_ workspace key.");
+}
 
 const require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = require("../package.json") as { version: string };
 
 type Provider = "openai" | "anthropic";
-type Frequency = "hourly" | "daily" | "weekly";
-type Threshold = "low" | "medium" | "high" | "critical";
+type Frequency = "hourly" | "daily" | "weekly" | "on_trigger";
 
 const TOOL_DEFINITIONS = [
   {
     name: "list_endpoints",
     description:
       "List the LLM endpoints currently monitored in this workspace. " +
-      "Returns id, name, provider, model, base_url, created_at for each.",
+      "Returns id, name, provider, model, is_active, created_at for each.",
     inputSchema: { type: "object", properties: {} },
   },
   {
@@ -59,10 +75,6 @@ const TOOL_DEFINITIONS = [
         name: { type: "string", description: "Human-readable label, e.g. 'GPT-4o mini prod'." },
         provider: { type: "string", enum: ["openai", "anthropic"] },
         model: { type: "string", description: "Model identifier, e.g. 'gpt-4o-mini' or 'claude-sonnet-4-6'." },
-        base_url: {
-          type: "string",
-          description: "Optional. Override base URL for OpenAI-compatible endpoints (vLLM, LiteLLM, Together).",
-        },
       },
       required: ["name", "provider", "model"],
     },
@@ -72,7 +84,7 @@ const TOOL_DEFINITIONS = [
     description:
       "List behavioral specs in the workspace. A spec is a stored prompt + " +
       "expectation that ModelWatch replays on a schedule and diffs against a " +
-      "baseline. Returns id, name, prompt, frequency, threshold, last_severity, " +
+      "baseline. Returns id, name, input_text, schedule, has_baseline, " +
       "and the parent endpoint_id.",
     inputSchema: {
       type: "object",
@@ -87,7 +99,7 @@ const TOOL_DEFINITIONS = [
       "Create a behavioral spec. The first run after creation sets the " +
       "baseline output; subsequent scheduled runs are scored against that " +
       "baseline across 5 axes (semantic, format, refusal, length, contains). " +
-      "An alert is sent when the drift score crosses the threshold.",
+      "Provide a semantic similarity threshold or use the API default.",
     inputSchema: {
       type: "object",
       properties: {
@@ -96,16 +108,13 @@ const TOOL_DEFINITIONS = [
         prompt: { type: "string", description: "The exact prompt to send to the model." },
         frequency: {
           type: "string",
-          enum: ["hourly", "daily", "weekly"],
-          description: "How often to run the spec.",
+          enum: ["hourly", "daily", "weekly", "on_trigger"],
+          description: "How often to run the spec (on_trigger for manual runs only).",
           default: "daily",
         },
-        threshold: {
-          type: "string",
-          enum: ["low", "medium", "high", "critical"],
-          description:
-            "Severity at which to fire an alert. Buckets: low ≥0.05, medium ≥0.15, high ≥0.35, critical ≥0.6.",
-          default: "medium",
+        semantic_threshold: {
+          type: "number", minimum: 0, maximum: 1,
+          description: "Optional. Semantic similarity threshold (API default 0.85).",
         },
       },
       required: ["endpoint_id", "name", "prompt"],
@@ -117,8 +126,8 @@ const TOOL_DEFINITIONS = [
       "Run a spec on demand and return the drift score immediately. Use this " +
       "to (1) set the baseline manually right after create_spec, or (2) sanity-" +
       "check a spec without waiting for the next scheduled run. Returns the " +
-      "drift score, severity bucket, per-axis scores, and the drift_event_id " +
-      "if one was created.",
+      "run status, output, drift score, semantic similarity, format match, " +
+      "refusal flag, and timestamp.",
     inputSchema: {
       type: "object",
       properties: {
@@ -144,8 +153,8 @@ const TOOL_DEFINITIONS = [
     name: "get_drift_events",
     description:
       "Fetch recent drift events across the workspace, newest first. Each " +
-      "event has spec_id, spec_name, severity, drift_score, axes breakdown, " +
-      "baseline_output, current_output, and detected_at. Use this for " +
+      "event has spec_id, run_id, severity, drift_score, summary, " +
+      "and created_at. Use this for " +
       "weekly review or to drive an automation.",
     inputSchema: {
       type: "object",
@@ -158,8 +167,8 @@ const TOOL_DEFINITIONS = [
   {
     name: "get_spec_history",
     description:
-      "Get the run history for a single spec. Returns each run's drift score, " +
-      "severity, axes breakdown, and timestamp — useful for trending charts " +
+      "Get the run history for a single spec. Returns each run's status, " +
+      "drift score, semantic similarity, format match, and timestamp — useful for trending charts " +
       "and reasoning about when behavior shifted.",
     inputSchema: {
       type: "object",
@@ -173,8 +182,9 @@ const TOOL_DEFINITIONS = [
   {
     name: "get_health",
     description:
-      "Workspace KPIs: plan, spec count, runs this month, plan limits, " +
-      "active drift events. Useful as a daily status check.",
+      "Per-spec health across the workspace: spec_id, spec_name, endpoint_name, " +
+      "status (green/yellow/red), last_drift_score and last_run_at. " +
+      "This is not a plan or billing KPI endpoint.",
     inputSchema: { type: "object", properties: {} },
   },
 ];
@@ -202,6 +212,8 @@ async function callApi(
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    redirect: "error",
+    signal: AbortSignal.timeout(15_000),
   });
   let json: any = null;
   const ct = r.headers.get("content-type") || "";
@@ -249,7 +261,9 @@ async function handleCreateEndpoint(args: any) {
     provider: unwrap<Provider>(args.provider, "provider"),
     model: unwrap<string>(args.model, "model"),
   };
-  if (args.base_url) body.base_url = args.base_url;
+  if (args.base_url !== undefined) {
+    throw new McpError(ErrorCode.InvalidParams, "Custom provider base URLs are not supported by the API.");
+  }
   return callApi("POST", "/api/endpoints", body);
 }
 
@@ -259,13 +273,17 @@ async function handleListSpecs(args: any) {
 }
 
 async function handleCreateSpec(args: any) {
-  return callApi("POST", "/api/specs", {
-    endpoint_id: unwrap<string>(args.endpoint_id, "endpoint_id"),
+  const endpointId = unwrap<string>(args.endpoint_id, "endpoint_id");
+  if (args.threshold !== undefined) {
+    throw new McpError(ErrorCode.InvalidParams, "Use semantic_threshold (0 to 1); severity thresholds are not supported by the API.");
+  }
+  const body: Record<string, unknown> = {
     name: unwrap<string>(args.name, "name"),
-    prompt: unwrap<string>(args.prompt, "prompt"),
-    frequency: (args.frequency as Frequency) || "daily",
-    threshold: (args.threshold as Threshold) || "medium",
-  });
+    input_text: unwrap<string>(args.prompt, "prompt"),
+    schedule: (args.frequency as Frequency) || "daily",
+  };
+  if (args.semantic_threshold !== undefined) body.semantic_threshold = args.semantic_threshold;
+  return callApi("POST", `/api/specs?endpoint_id=${encodeURIComponent(endpointId)}`, body);
 }
 
 async function handleRunSpec(args: any) {
