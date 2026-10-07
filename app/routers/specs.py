@@ -117,7 +117,12 @@ async def update_spec(
     spec = result.scalar_one_or_none()
     if not spec:
         raise HTTPException(status_code=404, detail="Spec not found")
-    for field, value in body.model_dump(exclude_unset=True).items():
+    updates = body.model_dump(exclude_unset=True)
+    min_length = updates.get("min_length", spec.min_length)
+    max_length = updates.get("max_length", spec.max_length)
+    if min_length is not None and max_length is not None and min_length > max_length:
+        raise HTTPException(status_code=422, detail="min_length must not exceed max_length")
+    for field, value in updates.items():
         setattr(spec, field, value)
     return SpecOut.from_orm_with_baseline(spec)
 

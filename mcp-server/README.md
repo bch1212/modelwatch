@@ -44,12 +44,12 @@ if it is exposed. The key never belongs in a command-line argument.
 | `list_endpoints` | Show monitored LLM endpoints |
 | `create_endpoint` | Add an endpoint (provider + model) |
 | `list_specs` | Show behavioral specs |
-| `create_spec` | Add a spec (prompt + frequency + severity threshold) |
+| `create_spec` | Add a spec (prompt + schedule + optional semantic similarity threshold) |
 | `run_spec` | Run a spec on demand; baseline if first run |
 | `reset_baseline` | Re-baseline after an intentional model swap |
 | `get_drift_events` | Recent drift events across the workspace |
 | `get_spec_history` | Run history for one spec |
-| `get_health` | Workspace KPIs (plan, spec count, runs this month) |
+| `get_health` | Per-spec health status, last drift score and last run time |
 
 ## Example session
 
