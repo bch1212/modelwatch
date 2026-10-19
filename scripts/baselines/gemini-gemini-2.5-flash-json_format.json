@@ -2,6 +2,6 @@
   "provider": "gemini",
   "model": "gemini-2.5-flash",
   "spec_id": "json_format",
-  "captured_at": "2026-10-12T21:33:26.809559+00:00",
+  "captured_at": "2026-10-19T18:58:59.114281+00:00",
   "output": "{\"name\": \"Mars\", \"distance_from_sun_km\": 227900000, \"day_length_hours\": 24.6, \"has_moons\": true}"
 }
