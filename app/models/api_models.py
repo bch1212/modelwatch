@@ -1,7 +1,7 @@
 """Pydantic models for API request/response validation."""
 
 from datetime import datetime
-from typing import Optional
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator, model_validator
@@ -263,3 +263,83 @@ class DriftTrend(BaseModel):
     date: datetime
     drift_score: float
     spec_id: UUID
+
+
+# ── Tool monitoring ──────────────────────────────────────────────────
+
+class ToolCallIn(BaseModel):
+    """One tool invocation reported by the ModelWatch decorator."""
+    tool_name: str = Field(..., min_length=1, max_length=200)
+    agent_id: str = Field(default="default", min_length=1, max_length=100)
+    latency_ms: int = Field(ge=0, le=600_000)
+    success: bool
+    error: Optional[str] = Field(None, max_length=500)
+    output_shape: Optional[str] = Field(None, max_length=64)
+    output_shape_tree: Optional[Any] = None
+    tags: dict = Field(default_factory=dict)
+    called_at: Optional[datetime] = None
+
+    @field_validator("tool_name", mode="before")
+    @classmethod
+    def clip_tool_name(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        return value.strip()[:200]
+
+    @field_validator("agent_id", mode="before")
+    @classmethod
+    def clip_agent_id(cls, value: Any) -> Any:
+        if value is None:
+            return "default"
+        if not isinstance(value, str):
+            return value
+        return (value.strip() or "default")[:100]
+
+    @field_validator("error", mode="before")
+    @classmethod
+    def cap_error(cls, value: Any) -> Any:
+        if value is None or not isinstance(value, str):
+            return value
+        return value[:500]
+
+
+class ToolCallOut(BaseModel):
+    id: UUID
+    tool_name: str
+    agent_id: str
+    latency_ms: int
+    success: bool
+    error: Optional[str]
+    output_shape: Optional[str]
+    tags: Optional[dict]
+    called_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ToolSummaryOut(BaseModel):
+    tool_name: str
+    total_calls: int
+    successful: int
+    avg_latency_ms: float
+    last_seen: datetime
+
+
+class ToolSchemaDriftOut(BaseModel):
+    id: UUID
+    tool_name: str
+    agent_id: str
+    baseline_shape: str
+    new_shape: str
+    diff: Optional[dict]
+    summary: Optional[str]
+    email_sent: bool
+    slack_sent: bool
+    detected_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ToolIngestResult(BaseModel):
+    ingested: int
+    drift_events_created: int

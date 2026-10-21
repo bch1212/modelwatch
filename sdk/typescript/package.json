@@ -1,0 +1,23 @@
+{
+  "name": "modelwatch-sdk",
+  "version": "0.1.0",
+  "description": "ModelWatch tool monitoring — wrap agent tool calls and fingerprint response shapes.",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "files": ["src", "README.md", "LICENSE"],
+  "scripts": {
+    "test": "node --experimental-strip-types --test src/*.test.ts"
+  },
+  "keywords": ["llm", "agent", "monitoring", "modelwatch", "mcp", "schema-drift"],
+  "author": "Brett Halverson",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bch1212/modelwatch"
+  },
+  "homepage": "https://modelwatch.app/docs.html#tool-monitoring",
+  "engines": {
+    "node": ">=22.18"
+  }
+}

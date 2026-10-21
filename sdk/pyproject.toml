@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "modelwatch-sdk"
+version = "0.1.0"
+description = "ModelWatch tool monitoring — one decorator for agent tool calls, with response-shape fingerprints."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Brett Halverson" }]
+keywords = ["llm", "agent", "monitoring", "modelwatch", "mcp", "schema-drift"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+]
+dependencies = [
+    "httpx>=0.25.0",
+]
+
+[project.urls]
+Homepage = "https://modelwatch.app"
+Documentation = "https://modelwatch.app/docs.html#tool-monitoring"
+Repository = "https://github.com/bch1212/modelwatch"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["modelwatch*"]

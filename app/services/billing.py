@@ -118,21 +118,25 @@ def get_limits(plan: Plan) -> dict:
             "specs": settings.free_specs,
             "runs_per_month": settings.free_runs_per_month,
             "endpoints": settings.free_endpoints,
+            "tool_calls_per_month": settings.free_tool_calls_per_month,
         },
         Plan.pro: {
             "specs": settings.pro_specs,
             "runs_per_month": settings.pro_runs_per_month,
             "endpoints": settings.pro_endpoints,
+            "tool_calls_per_month": settings.pro_tool_calls_per_month,
         },
         Plan.team: {
             "specs": settings.team_specs,
             "runs_per_month": settings.team_runs_per_month,
             "endpoints": settings.team_endpoints,
+            "tool_calls_per_month": settings.team_tool_calls_per_month,
         },
         Plan.enterprise: {
             "specs": settings.enterprise_specs,
             "runs_per_month": settings.enterprise_runs_per_month,
             "endpoints": settings.enterprise_endpoints,
+            "tool_calls_per_month": settings.enterprise_tool_calls_per_month,
         },
     }[plan]
 

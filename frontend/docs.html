@@ -140,6 +140,24 @@ GET /api/dashboard/recent-events?limit=20</pre>
   </ul>
   <p>Severity buckets: <code>&lt;0.05</code> none &middot; <code>&lt;0.15</code> low &middot; <code>&lt;0.35</code> medium &middot; <code>&lt;0.6</code> high &middot; <code>&ge;0.6</code> critical.</p>
 
+  <h2 id="tool-monitoring" class="mt-10 text-xl font-semibold">Tool monitoring</h2>
+  <p>Wrap an agent tool so ModelWatch can see latency, failures, and response <em>shape</em>. The decorator fingerprints structure only &mdash; values stay in your process. The same <code>mw_</code> bearer key is used. There is no separate tool-monitoring host.</p>
+<pre>pip install -e sdk
+export MODELWATCH_API_KEY=mw_...
+
+from modelwatch import monitor
+
+@monitor(tool_name="search_web", agent_id="researcher")
+async def search_web(query: str) -> dict:
+    ...</pre>
+  <p>Install <code>sdk</code> from a checkout of this repo. The import name is <code>modelwatch</code>. A PyPI package is not published yet.</p>
+  <p>The SDK batches calls to <code>POST /api/tools/ingest</code> on <code>https://api.modelwatch.app</code>. Override the origin with <code>MODELWATCH_API_BASE</code> for a local API. If the key is unset, the decorator does nothing and does not send data.</p>
+<pre>GET /api/tools
+GET /api/tools/{tool_name}/calls
+GET /api/tools/schema-drift</pre>
+  <p>Schema drift compares each successful fingerprint with the most common fingerprint for that tool and agent over the last 24 hours. A baseline needs at least 5 calls. The same new fingerprint alerts at most once an hour, through the workspace email and Slack webhook. Tool-call quotas are separate from spec runs: Free 5,000/month, Pro 100,000, Team 1,000,000, Enterprise unlimited.</p>
+  <p>A TypeScript wrapper with the same environment variables lives in <code>sdk/typescript</code>. MCP servers can call <code>wrap_mcp_server(server, agent_id="...")</code> after tools are registered.</p>
+
   <h2 class="mt-10 text-xl font-semibold">MCP server</h2>
   <p>Install <code>modelwatch-mcp</code> for Claude Desktop / Claude Code:</p>
 <pre>npm install -g modelwatch-mcp</pre>

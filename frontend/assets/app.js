@@ -261,6 +261,7 @@
     refreshEndpoints();
     refreshSpecs();
     refreshDrift();
+    refreshToolDrift();
     refreshHealth();
   }
 
@@ -367,6 +368,33 @@
           api('DELETE', '/api/specs/' + b.getAttribute('data-del-spec')).then(refreshSpecs);
         });
       });
+    });
+  }
+
+  function refreshToolDrift() {
+    api('GET', '/api/tools/schema-drift?limit=10').then(function (data) {
+      var rows = data.items || data;
+      var c = document.getElementById('tool-drift-list');
+      if (!c) return;
+      if (!rows.length) {
+        c.innerHTML = '<p class="text-sm text-slate-500 py-4">No tool schema drift yet. Wrap a tool with @monitor and calls show up after the shape changes.</p>';
+        return;
+      }
+      c.innerHTML = rows.map(function (e) {
+        var when = new Date(e.detected_at || Date.now()).toLocaleString();
+        var summary = e.summary || '';
+        return '<div class="py-3">' +
+          '<div class="flex items-center gap-2 flex-wrap">' +
+            '<span class="font-medium">' + escapeHtml(e.tool_name || '') + '</span>' +
+            '<span class="text-xs text-slate-500 mono">' + escapeHtml(e.agent_id || 'default') + '</span>' +
+            '<span class="text-slate-500 text-sm">' + escapeHtml(when) + '</span>' +
+          '</div>' +
+          '<p class="text-xs text-slate-600 mt-1">' + escapeHtml(summary) + '</p>' +
+        '</div>';
+      }).join('');
+    }).catch(function () {
+      var c = document.getElementById('tool-drift-list');
+      if (c) c.innerHTML = '<p class="text-sm text-slate-500 py-4">No tool schema drift yet.</p>';
     });
   }
 

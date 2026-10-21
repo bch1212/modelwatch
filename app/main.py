@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="ModelWatch API",
-    description="Continuous behavioral drift monitoring for LLM-powered applications",
+    description="Continuous behavioral drift monitoring for LLM-powered applications, including tool-call schema drift",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -55,7 +55,7 @@ app.add_middleware(
 
 # ── Register routers ────────────────────────────────────────────────
 
-from app.routers import auth, workspaces, endpoints, specs, dashboard, billing, badge  # noqa: E402
+from app.routers import auth, workspaces, endpoints, specs, dashboard, billing, badge, tools  # noqa: E402
 
 app.include_router(auth.router)
 app.include_router(workspaces.router)
@@ -64,6 +64,7 @@ app.include_router(specs.router)
 app.include_router(dashboard.router)
 app.include_router(billing.router)
 app.include_router(badge.router)
+app.include_router(tools.router)
 
 
 @app.get("/health")

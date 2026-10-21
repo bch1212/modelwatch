@@ -79,6 +79,10 @@ class Workspace(Base):
 
     endpoints = relationship("Endpoint", back_populates="workspace", cascade="all, delete-orphan")
     api_keys = relationship("ApiKey", back_populates="workspace", cascade="all, delete-orphan")
+    tool_calls = relationship("ToolCall", back_populates="workspace", cascade="all, delete-orphan")
+    tool_schema_drifts = relationship(
+        "ToolSchemaDrift", back_populates="workspace", cascade="all, delete-orphan"
+    )
 
 
 class ApiKey(Base):
@@ -229,4 +233,61 @@ class DriftEvent(Base):
 
     __table_args__ = (
         Index("ix_drift_spec_created", "spec_id", "created_at"),
+    )
+
+
+class ToolCall(Base):
+    """One invocation of a customer tool, reported by the ModelWatch decorator.
+
+    `output_shape` is a fingerprint of the response structure. Values stay in
+    the customer's process.
+    """
+    __tablename__ = "tool_calls"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_id)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    tool_name = Column(String(200), nullable=False)
+    agent_id = Column(String(100), nullable=False, default="default")
+    latency_ms = Column(Integer, nullable=False)
+    success = Column(Boolean, nullable=False)
+    error = Column(Text, nullable=True)
+    output_shape = Column(String(16), nullable=True)
+    output_shape_tree = Column(JSON, nullable=True)
+    tags = Column(JSON, default=dict)
+    called_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    workspace = relationship("Workspace", back_populates="tool_calls")
+
+    __table_args__ = (
+        Index("ix_tool_call_workspace_tool_agent_called", "workspace_id", "tool_name", "agent_id", "called_at"),
+    )
+
+
+class ToolSchemaDrift(Base):
+    """A tool response shape diverged from the recent dominant shape.
+
+    Separate from behavioral `DriftEvent` rows, which belong to specs.
+    """
+    __tablename__ = "tool_schema_drifts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=new_id)
+    workspace_id = Column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False)
+    tool_name = Column(String(200), nullable=False)
+    agent_id = Column(String(100), nullable=False, default="default")
+    baseline_shape = Column(String(16), nullable=False)
+    new_shape = Column(String(16), nullable=False)
+    diff = Column(JSON, nullable=True)
+    summary = Column(Text, nullable=True)
+    email_sent = Column(Boolean, default=False)
+    slack_sent = Column(Boolean, default=False)
+    detected_at = Column(DateTime(timezone=True), default=utcnow, nullable=False)
+
+    workspace = relationship("Workspace", back_populates="tool_schema_drifts")
+
+    __table_args__ = (
+        Index("ix_tool_schema_drift_workspace_detected", "workspace_id", "detected_at"),
+        Index(
+            "ix_tool_schema_drift_dedup",
+            "workspace_id", "tool_name", "agent_id", "new_shape", "detected_at",
+        ),
     )
