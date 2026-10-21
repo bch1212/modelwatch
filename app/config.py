@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     enterprise_runs_per_month: int = 999_999
     enterprise_endpoints: int = 999_999
 
+    # Tool-call ingest (decorator telemetry). Separate from spec runs.
+    free_tool_calls_per_month: int = 5_000
+    pro_tool_calls_per_month: int = 100_000
+    team_tool_calls_per_month: int = 1_000_000
+    enterprise_tool_calls_per_month: int = 999_999_999
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 

@@ -10,8 +10,9 @@ LangSmith can't catch because they only run on user trigger.
 
 Customers bring their own OpenAI/Anthropic API key (zero LLM COGS for us).
 
-## Status as of 2026-05-08
-- Backend complete: 53/53 pytest tests pass
+## Status as of 2026-10-21
+- Backend complete, including tool-call monitoring (decorator + schema drift)
+- pytest: `pytest tests/ -q` (behavioral specs and ported tool-monitoring tests)
 - Domain `modelwatch.app` purchased, **not yet added to Cloudflare**
 - Not yet deployed to Railway
 - `deploy.sh` is ready and idempotent
@@ -23,7 +24,7 @@ app/
   main.py              — FastAPI app, lifespan starts scheduler + creates tables
   models/
     database.py        — lazy async SQLAlchemy engine/session (sqlite-friendly)
-    schemas.py         — ORM: Workspace, ApiKey, Endpoint, Spec, Run, DriftEvent
+    schemas.py         — ORM: Workspace, ApiKey, Endpoint, Spec, Run, DriftEvent, ToolCall, ToolSchemaDrift
     api_models.py      — Pydantic request/response models
   middleware/auth.py   — API-key auth (mw_<token> Bearer; NOT Clerk)
   routers/
@@ -31,6 +32,7 @@ app/
     workspaces.py      — /api/workspaces/me + /me/api-keys (LLM provider keys)
     endpoints.py       — /api/endpoints CRUD
     specs.py           — /api/specs CRUD + /run + /runs + /drift-events + /reset-baseline
+    tools.py           — /api/tools ingest + list + schema-drift
     dashboard.py       — /api/dashboard/health + /drift-trends + /recent-events
     billing.py         — /api/billing/checkout + /webhook (Stripe)
     badge.py           — /api/badge/{workspace_id}.svg (shields.io-compat SVG)
@@ -40,10 +42,13 @@ app/
     embedding.py       — text-embedding-3-small via customer's OpenAI key
     diff_engine.py     — format / length / semantic / refusal / contains diff
     drift_detector.py  — orchestrator: run spec → diff → maybe create DriftEvent
+    tool_schema.py     — response-shape fingerprint (values stay on the client)
+    tool_drift.py      — 24h dominant-shape drift for monitored tool calls
     scheduler.py       — APScheduler hourly/daily/weekly + monthly counter reset
     alerts.py          — SendGrid email + Slack incoming-webhook
     billing.py         — Stripe checkout + webhook handlers + plan limits
-tests/                 — 53 tests, all passing
+sdk/                   — customer decorator (modelwatch) + TypeScript wrapper → api.modelwatch.app
+tests/                 — behavioral specs plus ported tool-monitoring tests
 deploy.sh              — full provisioning (Stripe → Railway → Cloudflare)
 Dockerfile             — python:3.12-slim, runs `python -m app.main`
 railway.toml           — startCommand uses `python -m app.main` (no shell)
@@ -53,9 +58,9 @@ railway.toml           — startCommand uses `python -m app.main` (no shell)
 ```
 
 ## Pricing tiers
-- **Free**: 5 specs, 500 runs/mo, 1 endpoint, email alerts
-- **Pro $99/mo**: 50 specs, 10K runs/mo, 5 endpoints, Slack + email, drift trends
-- **Team $299/mo**: unlimited specs, 100K runs/mo, unlimited endpoints, regression reports
+- **Free**: 5 specs, 500 runs/mo, 5K tool calls/mo, 1 endpoint, email alerts
+- **Pro $99/mo**: 50 specs, 10K runs/mo, 100K tool calls/mo, 5 endpoints, Slack + email, drift trends
+- **Team $299/mo**: unlimited specs, 100K runs/mo, 1M tool calls/mo, unlimited endpoints, regression reports
 - **Enterprise $999/mo**: unlimited everything, priority support
 
 Stripe lookup keys: `modelwatch_pro_monthly`, `modelwatch_team_monthly`, `modelwatch_enterprise_monthly`

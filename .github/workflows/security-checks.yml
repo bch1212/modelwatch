@@ -18,6 +18,18 @@ jobs:
       - run: python -m pytest -q
       - run: python -m pip_audit -r requirements.txt
 
+  tool-sdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/typescript
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.22.2"
+      - run: npm test
+
   mcp-package:
     runs-on: ubuntu-latest
     defaults:

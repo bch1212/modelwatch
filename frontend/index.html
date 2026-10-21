@@ -40,6 +40,7 @@
     </a>
     <nav class="hidden md:flex items-center gap-6 text-sm text-slate-600">
       <a href="#how" class="hover:text-slate-900">How it works</a>
+      <a href="#tools" class="hover:text-slate-900">Tools</a>
       <a href="#pricing" class="hover:text-slate-900">Pricing</a>
       <a href="/docs.html" class="hover:text-slate-900">Docs</a>
       <a href="/blog/" class="hover:text-slate-900">Blog</a>
@@ -145,6 +146,25 @@
   </div>
 </section>
 
+<section id="tools" class="border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-2 gap-10 items-start">
+    <div>
+      <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tool monitoring</p>
+      <h2 class="text-3xl font-semibold mt-2">Catch the tool that changed shape underneath the agent.</h2>
+      <p class="mt-4 text-slate-700">A one-line decorator wraps any function or MCP tool. ModelWatch records latency and a fingerprint of the response structure. When that structure is no longer the one your agent has been getting, you get the same email and Slack alert as a model-drift event.</p>
+      <p class="mt-3 text-sm text-slate-500">Values stay in your process. The fingerprint is types and keys only. Docs: <a href="/docs.html#tool-monitoring" class="text-brand-600 hover:underline">tool monitoring</a>.</p>
+    </div>
+    <pre class="mono text-[13px] leading-relaxed bg-slate-900 text-slate-100 rounded-xl p-5 overflow-x-auto">from modelwatch import monitor
+
+@monitor(tool_name="search_web", agent_id="researcher")
+async def search_web(query: str) -> dict:
+    ...
+
+# MODELWATCH_API_KEY=mw_...
+# https://api.modelwatch.app/api/tools/ingest</pre>
+  </div>
+</section>
+
 <!-- pricing -->
 <section id="pricing" class="border-b border-slate-200 bg-slate-50">
   <div class="max-w-6xl mx-auto px-6 py-16">
@@ -160,6 +180,7 @@
         <ul class="text-sm text-slate-700 space-y-1 mb-6">
           <li>5 specs</li>
           <li>500 runs / month</li>
+          <li>5,000 tool calls / month</li>
           <li>1 endpoint</li>
           <li>Email alerts</li>
         </ul>
@@ -173,6 +194,7 @@
         <ul class="text-sm text-slate-700 space-y-1 mb-6">
           <li>50 specs</li>
           <li>10,000 runs / month</li>
+          <li>100,000 tool calls / month</li>
           <li>5 endpoints</li>
           <li>Slack + email alerts</li>
           <li>Drift trends + history</li>
@@ -186,6 +208,7 @@
         <ul class="text-sm text-slate-700 space-y-1 mb-6">
           <li>Unlimited specs</li>
           <li>100,000 runs / month</li>
+          <li>1,000,000 tool calls / month</li>
           <li>Unlimited endpoints</li>
           <li>Regression reports</li>
         </ul>
@@ -293,6 +316,6 @@
   </div>
 </footer>
 
-<script src="/assets/app.js?v=20261007-security"></script>
+<script src="/assets/app.js?v=20261021-tools"></script>
 </body>
 </html>

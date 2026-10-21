@@ -14,6 +14,7 @@ class TestPlanLimits:
         assert limits["specs"] == 5
         assert limits["runs_per_month"] == 500
         assert limits["endpoints"] == 1
+        assert limits["tool_calls_per_month"] == 5_000
 
     def test_pro_limits(self):
         limits = get_limits(Plan.pro)
