@@ -1,12 +1,13 @@
 """Self-serve signup — creates workspace, generates API key, emails it."""
 
 import logging
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr
 from sendgrid import SendGridAPIClient
 from sendgrid.helpers.mail import Mail
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -71,6 +72,23 @@ def _send_api_key_email(to_email: str, api_key: str, workspace_name: str) -> boo
 @router.post("/signup", response_model=SignupResponse, status_code=201)
 async def signup(body: SignupRequest, db: AsyncSession = Depends(get_db)):
     """Self-serve signup. Creates workspace + API key, emails the key."""
+    # Serialize count and creation across replicas. A process-local bucket or
+    # X-Forwarded-For would be bypassable or proxy-dependent. The PostgreSQL
+    # transaction-scoped lock is released on commit or rollback.
+    if db.get_bind().dialect.name == "postgresql":
+        await db.execute(text("SELECT pg_advisory_xact_lock(831004, 2)"))
+
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=1)
+    signup_count = await db.scalar(
+        select(func.count(Workspace.id)).where(Workspace.created_at >= cutoff)
+    )
+    if signup_count >= get_settings().signup_hourly_limit:
+        raise HTTPException(
+            status_code=429,
+            detail="Signup is temporarily unavailable. Please try again later.",
+            headers={"Retry-After": "3600"},
+        )
+
     # Idempotent — return existing workspace if email exists
     result = await db.execute(
         select(Workspace).where(Workspace.email == body.email)

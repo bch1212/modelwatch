@@ -3,6 +3,7 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 from cryptography.fernet import Fernet
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -32,6 +33,9 @@ class Settings(BaseSettings):
     free_specs: int = 5
     free_runs_per_month: int = 500
     free_endpoints: int = 1
+
+    # Durable global signup budget, independent of spoofable proxy headers.
+    signup_hourly_limit: int = Field(default=30, ge=1, le=10000)
 
     pro_specs: int = 50
     pro_runs_per_month: int = 10_000
